@@ -10,6 +10,9 @@ import javafx.scene.layout.{HBox, Priority, VBox}
 import java.time.LocalDate
 import scala.jdk.CollectionConverters.*
 
+/**
+ * Displays monthly summary cards based on current expenses and configured budget.
+ */
 final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetProvider):
   private val totalSpentValue = new Label("$0.00")
   private val budgetRemainingValue = new Label("$0.00")
@@ -19,6 +22,7 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
   private val budgetCard = summaryCard("Budget Remaining", budgetRemainingValue)
   private val transactionCard = summaryCard("Transactions This Month", transactionCountValue)
 
+  /** Root node rendered in the Dashboard tab. */
   val root: Node =
     val container = new VBox(16)
     container.setPadding(new Insets(20))
@@ -36,6 +40,7 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
   updateSummary()
   dataSource.expenses.addListener((_: ListChangeListener.Change[? <: com.financemanager.model.Expense]) => updateSummary())
 
+  /** Recomputes all summary values for the current month. */
   private def updateSummary(): Unit =
     val now = LocalDate.now()
     val monthlyExpenses = dataSource.expenses.asScala.filter { expense =>
@@ -49,6 +54,7 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
     budgetRemainingValue.setText("$" + f"${budgetLeft.toDouble}%.2f")
     transactionCountValue.setText(monthlyExpenses.size.toString)
 
+  /** Creates a styled summary card used by dashboard metrics. */
   private def summaryCard(title: String, valueLabel: Label): VBox =
     val card = new VBox(8)
     card.setPadding(new Insets(16))

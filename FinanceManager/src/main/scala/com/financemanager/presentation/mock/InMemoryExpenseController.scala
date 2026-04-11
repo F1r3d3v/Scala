@@ -7,6 +7,9 @@ import javafx.collections.{FXCollections, ObservableList}
 import java.time.LocalDate
 import scala.jdk.CollectionConverters.*
 
+/**
+ * In-memory implementation of expense contracts used by the demo UI.
+ */
 final class InMemoryExpenseController extends ExpenseDataSource, ExpenseCommands, BudgetProvider:
   private var nextId: Long = 5L
 
@@ -29,12 +32,14 @@ final class InMemoryExpenseController extends ExpenseDataSource, ExpenseCommands
     "Other"
   )
 
+  /** Adds a new expense when input validation succeeds. */
   override def addExpense(input: ExpenseInput): Either[String, Unit] =
     validate(input).map { _ =>
       expenses.add(Expense(nextId, input.date, input.amount, input.category, input.description))
       nextId += 1
     }
 
+  /** Updates an existing expense by id when validation and lookup succeed. */
   override def updateExpense(id: Long, input: ExpenseInput): Either[String, Unit] =
     validate(input).flatMap { _ =>
       expenses.asScala.indexWhere(_.id == id) match
@@ -44,11 +49,13 @@ final class InMemoryExpenseController extends ExpenseDataSource, ExpenseCommands
           Right(())
     }
 
+  /** Removes an expense by id; no-op when id is not found. */
   override def deleteExpense(id: Long): Unit =
     expenses.asScala.indexWhere(_.id == id) match
       case -1 => ()
       case idx => expenses.remove(idx)
 
+  /** Performs basic business validation shared by add and update operations. */
   private def validate(input: ExpenseInput): Either[String, Unit] =
     if input.amount <= 0 then Left("Amount must be greater than zero")
     else if input.category.trim.isEmpty then Left("Category is required")

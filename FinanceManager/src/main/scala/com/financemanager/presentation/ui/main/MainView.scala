@@ -4,11 +4,15 @@ import javafx.scene.Node
 import javafx.scene.control.{Tab, TabPane}
 import javafx.scene.layout.BorderPane
 
+/**
+ * Hosts the three main application sections inside a tabbed layout.
+ */
 final class MainView(
     dashboardView: Node,
     transactionsView: Node,
     analyticsView: Node
 ):
+  /** Root node used as the main scene content. */
   val root: BorderPane =
     val tabs = new TabPane()
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE)

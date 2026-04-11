@@ -12,6 +12,9 @@ import javafx.scene.layout.{GridPane, HBox, Priority, VBox}
 import java.time.LocalDate
 import scala.util.Try
 
+/**
+ * Provides CRUD interactions for expenses, including table view and edit form.
+ */
 final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCommands):
   private var selectedExpenseId: Option[Long] = None
 
@@ -51,6 +54,7 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
 
   private val clearButton = new Button("Clear")
 
+  /** Root node rendered in the Transactions tab. */
   val root: Node =
     val container = new VBox(14)
     container.setPadding(new Insets(20))
@@ -71,6 +75,7 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
   deleteButton.setOnAction(_ => deleteExpense())
   clearButton.setOnAction(_ => clearForm())
 
+  /** Builds the form section used to add or edit an expense. */
   private def formSection: VBox =
     val wrapper = new VBox(10)
 
@@ -94,6 +99,7 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
     wrapper.getChildren.addAll(subtitle, grid, buttons)
     wrapper
 
+  /** Loads selected table row values into the edit form. */
   private def loadExpenseIntoForm(expense: Expense): Unit =
     selectedExpenseId = Some(expense.id)
     datePicker.setValue(expense.date)
@@ -103,6 +109,7 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
     updateButton.setDisable(false)
     deleteButton.setDisable(false)
 
+  /** Validates and submits a new expense using command handlers. */
   private def submitNewExpense(): Unit =
     buildInput() match
       case Left(error) => showError(error)
@@ -111,6 +118,7 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
           case Left(validationError) => showError(validationError)
           case Right(_) => clearForm()
 
+  /** Validates and persists changes for the currently selected expense. */
   private def updateExpense(): Unit =
     selectedExpenseId match
       case None => showError("Select an expense first")
@@ -122,10 +130,12 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
               case Left(validationError) => showError(validationError)
               case Right(_) => clearForm()
 
+  /** Deletes the currently selected expense and resets the form. */
   private def deleteExpense(): Unit =
     selectedExpenseId.foreach(commands.deleteExpense)
     clearForm()
 
+  /** Clears form fields and returns UI controls to initial state. */
   private def clearForm(): Unit =
     selectedExpenseId = None
     datePicker.setValue(LocalDate.now())
@@ -136,6 +146,7 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
     updateButton.setDisable(true)
     deleteButton.setDisable(true)
 
+  /** Builds domain input from form controls with basic parsing checks. */
   private def buildInput(): Either[String, ExpenseInput] =
     val date = Option(datePicker.getValue)
     val amount = Try(BigDecimal(amountField.getText.trim)).toOption
@@ -146,6 +157,7 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
     else if amount.isEmpty then Left("Amount must be a valid number")
     else Right(ExpenseInput(date.get, amount.get, category, description))
 
+  /** Shows a validation error dialog to the user. */
   private def showError(message: String): Unit =
     val alert = new Alert(Alert.AlertType.ERROR)
     alert.setTitle("Validation error")

@@ -11,6 +11,9 @@ import javafx.scene.layout.{HBox, Priority, VBox}
 import java.time.LocalDate
 import scala.jdk.CollectionConverters.*
 
+/**
+ * Renders analytics charts that aggregate expenses by category and month.
+ */
 final class AnalyticsView(dataSource: ExpenseDataSource):
   private val categoryPieData = javafx.collections.FXCollections.observableArrayList[PieChart.Data]()
   private val monthlySeries = new XYChart.Series[String, Number]()
@@ -30,6 +33,7 @@ final class AnalyticsView(dataSource: ExpenseDataSource):
   barChart.setTitle("Spend Trend (Last 6 Months)")
   barChart.getData.add(monthlySeries)
 
+  /** Root node rendered in the Analytics tab. */
   val root: Node =
     val container = new VBox(16)
     container.setPadding(new Insets(20))
@@ -47,10 +51,12 @@ final class AnalyticsView(dataSource: ExpenseDataSource):
   refreshCharts()
   dataSource.expenses.addListener((_: ListChangeListener.Change[? <: com.financemanager.model.Expense]) => refreshCharts())
 
+  /** Refreshes all chart series from current data source values. */
   private def refreshCharts(): Unit =
     refreshCategoryPie()
     refreshMonthlyTrend()
 
+  /** Rebuilds category totals used by the pie chart. */
   private def refreshCategoryPie(): Unit =
     val perCategory = dataSource.expenses.asScala
       .groupBy(_.category)
@@ -63,6 +69,7 @@ final class AnalyticsView(dataSource: ExpenseDataSource):
       new PieChart.Data(category, total.toDouble)
     }*)
 
+  /** Rebuilds six-month spend points used by the bar chart. */
   private def refreshMonthlyTrend(): Unit =
     val today = LocalDate.now()
     val lastSix = 0.to(5).reverse.map(today.minusMonths(_))
