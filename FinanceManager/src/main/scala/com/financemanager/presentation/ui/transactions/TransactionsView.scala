@@ -1,6 +1,6 @@
 package com.financemanager.presentation.ui.transactions
 
-import com.financemanager.model.{Expense, ExpenseInput}
+import com.financemanager.model.{Transaction, TransactionInput}
 import com.financemanager.presentation.contracts.{ExpenseCommands, ExpenseDataSource}
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.collections.FXCollections
@@ -18,19 +18,23 @@ import scala.util.Try
 final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCommands):
   private var selectedExpenseId: Option[Long] = None
 
-  private val table = new TableView[Expense](dataSource.expenses)
+  private val table = new TableView[Transaction](dataSource.expenses)
   table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS)
 
-  private val dateCol = new TableColumn[Expense, String]("Date")
+  private val dateCol = new TableColumn[Transaction, String]("Date")
   dateCol.setCellValueFactory(cell => ReadOnlyStringWrapper(cell.getValue.date.toString))
 
-  private val amountCol = new TableColumn[Expense, String]("Amount")
-  amountCol.setCellValueFactory(cell => ReadOnlyStringWrapper("$" + f"${cell.getValue.amount.toDouble}%.2f"))
+  private val amountCol = new TableColumn[Transaction, String]("Amount")
+  amountCol.setCellValueFactory { cell =>
+    val exp = cell.getValue
+    val prefix = if exp.isIncome then "+$" else "-$"
+    ReadOnlyStringWrapper(prefix + f"${exp.amount.toDouble}%.2f")
+  }
 
-  private val categoryCol = new TableColumn[Expense, String]("Category")
+  private val categoryCol = new TableColumn[Transaction, String]("Category")
   categoryCol.setCellValueFactory(cell => ReadOnlyStringWrapper(cell.getValue.category))
 
-  private val descriptionCol = new TableColumn[Expense, String]("Description")
+  private val descriptionCol = new TableColumn[Transaction, String]("Description")
   descriptionCol.setCellValueFactory(cell => ReadOnlyStringWrapper(cell.getValue.description))
 
   table.getColumns.addAll(dateCol, amountCol, categoryCol, descriptionCol)
@@ -42,17 +46,19 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
   private val categoryBox = new ComboBox[String](FXCollections.observableArrayList(commands.categories*))
   categoryBox.setPromptText("Select category")
 
-  private val descriptionField = new TextField()
+  private val descriptionField = new TextArea()
   descriptionField.setPromptText("Description")
+  descriptionField.setPrefRowCount(3)
+  descriptionField.setWrapText(true)
 
-  private val addButton = new Button("Add")
-  private val updateButton = new Button("Update")
-  updateButton.setDisable(true)
+  private val saveButton = new Button("Add")
 
   private val deleteButton = new Button("Delete")
   deleteButton.setDisable(true)
 
   private val clearButton = new Button("Clear")
+
+  private val isIncomeCheckbox = new CheckBox("Mark as Income")
 
   /** Root node rendered in the Transactions tab. */
   val root: Node =
@@ -70,8 +76,7 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
     if selected != null then loadExpenseIntoForm(selected)
   )
 
-  addButton.setOnAction(_ => submitNewExpense())
-  updateButton.setOnAction(_ => updateExpense())
+  saveButton.setOnAction(_ => handleSave())
   deleteButton.setOnAction(_ => deleteExpense())
   clearButton.setOnAction(_ => clearForm())
 
@@ -89,25 +94,29 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
     grid.add(datePicker, 1, 0)
     grid.add(new Label("Amount"), 0, 1)
     grid.add(amountField, 1, 1)
+    grid.add(new Label("Type"), 0, 2)
+    grid.add(isIncomeCheckbox, 1, 2)
     grid.add(new Label("Category"), 2, 0)
     grid.add(categoryBox, 3, 0)
     grid.add(new Label("Description"), 2, 1)
     grid.add(descriptionField, 3, 1)
 
-    val buttons = new HBox(10, addButton, updateButton, deleteButton, clearButton)
+    val buttons = new HBox(10, saveButton, deleteButton, clearButton)
 
     wrapper.getChildren.addAll(subtitle, grid, buttons)
     wrapper
 
   /** Loads selected table row values into the edit form. */
-  private def loadExpenseIntoForm(expense: Expense): Unit =
+  private def loadExpenseIntoForm(expense: Transaction): Unit =
     selectedExpenseId = Some(expense.id)
     datePicker.setValue(expense.date)
     amountField.setText(expense.amount.toString)
     categoryBox.getSelectionModel.select(expense.category)
     descriptionField.setText(expense.description)
-    updateButton.setDisable(false)
+    saveButton.setText("Update")
+    saveButton.setStyle("-fx-base: #3498db;")
     deleteButton.setDisable(false)
+    isIncomeCheckbox.setSelected(expense.isIncome)
 
   /** Validates and submits a new expense using command handlers. */
   private def submitNewExpense(): Unit =
@@ -143,19 +152,22 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
     categoryBox.getSelectionModel.clearSelection()
     descriptionField.clear()
     table.getSelectionModel.clearSelection()
-    updateButton.setDisable(true)
+    saveButton.setText("Add")
+    saveButton.setStyle("")
     deleteButton.setDisable(true)
+    isIncomeCheckbox.setSelected(false)
 
   /** Builds domain input from form controls with basic parsing checks. */
-  private def buildInput(): Either[String, ExpenseInput] =
+  private def buildInput(): Either[String, TransactionInput] =
     val date = Option(datePicker.getValue)
     val amount = Try(BigDecimal(amountField.getText.trim)).toOption
     val category = Option(categoryBox.getSelectionModel.getSelectedItem).map(_.trim).getOrElse("")
     val description = Option(descriptionField.getText).map(_.trim).getOrElse("")
+    val isIncome = isIncomeCheckbox.isSelected
 
     if date.isEmpty then Left("Date is required")
     else if amount.isEmpty then Left("Amount must be a valid number")
-    else Right(ExpenseInput(date.get, amount.get, category, description))
+    else Right(TransactionInput(date.get, amount.get, category, description, isIncome))
 
   /** Shows a validation error dialog to the user. */
   private def showError(message: String): Unit =
@@ -164,3 +176,9 @@ final class TransactionsView(dataSource: ExpenseDataSource, commands: ExpenseCom
     alert.setHeaderText("Cannot save expense")
     alert.setContentText(message)
     alert.showAndWait()
+
+  private def handleSave() : Unit =
+    if selectedExpenseId.isDefined then
+      updateExpense()
+    else
+      submitNewExpense()

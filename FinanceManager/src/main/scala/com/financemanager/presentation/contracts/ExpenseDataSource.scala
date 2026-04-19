@@ -1,12 +1,12 @@
 package com.financemanager.presentation.contracts
 
-import com.financemanager.model.{Expense, ExpenseInput}
+import com.financemanager.model.{Transaction, TransactionInput}
 import javafx.collections.ObservableList
 
 /** Exposes the observable list of expenses used by UI components. */
 trait ExpenseDataSource:
   /** Returns live expense data that can be bound to JavaFX controls. */
-  def expenses: ObservableList[Expense]
+  def expenses: ObservableList[Transaction]
 
 /** Defines expense mutations triggered from the transactions UI. */
 trait ExpenseCommands:
@@ -18,14 +18,14 @@ trait ExpenseCommands:
    *
    * @return validation error message or success marker
    */
-  def addExpense(input: ExpenseInput): Either[String, Unit]
+  def addExpense(input: TransactionInput): Either[String, Unit]
 
   /**
    * Updates an existing expense by id using validated input.
    *
    * @return validation or lookup error message, or success marker
    */
-  def updateExpense(id: Long, input: ExpenseInput): Either[String, Unit]
+  def updateExpense(id: Long, input: TransactionInput): Either[String, Unit]
 
   /** Deletes an expense by id if it exists. */
   def deleteExpense(id: Long): Unit

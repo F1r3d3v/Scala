@@ -16,13 +16,16 @@ import scala.jdk.CollectionConverters.*
  */
 final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetProvider):
   private val totalSpentValue = new Label("$0.00")
+  private val totalIncomeValue = new Label("$0.00")
   private val budgetRemainingValue = new Label("$0.00")
   private val transactionCountValue = new Label("0")
 
   private val totalSpentCard = summaryCard("Total Spent", totalSpentValue)
+  private val incomeCard = summaryCard("Total Income", totalIncomeValue)
   private val budgetCard = summaryCard("Budget Remaining", budgetRemainingValue)
   private val transactionCard = summaryCard("Transactions This Month", transactionCountValue)
-
+  
+  
   /** Root node rendered in the Dashboard tab. */
   val root: Node =
     val container = new VBox(16)
@@ -31,7 +34,7 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
     val title = new Label("Monthly Summary")
     title.setStyle("-fx-font-size: 28; -fx-font-weight: bold;")
 
-    val cards = new HBox(16, totalSpentCard, budgetCard, transactionCard)
+    val cards = new HBox(16, incomeCard, totalSpentCard, budgetCard, transactionCard)
 
     val tip = new Label("Tip: Use the Transactions tab to add/edit expenses. Dashboard updates automatically.")
 
@@ -39,21 +42,26 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
     container
 
   updateSummary()
-  dataSource.expenses.addListener(_ => refreshCharts())
+  dataSource.expenses.addListener(_ => updateSummary())
 
   /** Recomputes all summary values for the current month. */
   private def updateSummary(): Unit =
     val now = LocalDate.now()
-    val monthlyExpenses = dataSource.expenses.asScala.filter { expense =>
-      YearMonth.from(expense.date) == YearMonth.from(now)
-    }
+    
+    // Split the data into two groups: Incomes and Expenses
+    val (monthlyIncomes, monthlyExpenses) = dataSource.expenses.asScala
+      .filter(e => YearMonth.from(e.date) == YearMonth.from(now))
+      .partition(_.isIncome)
 
     val totalSpent = monthlyExpenses.map(_.amount).sum
-    val budgetLeft = budgetProvider.monthlyBudget - totalSpent
+    val totalIncome = monthlyIncomes.map(_.amount).sum
 
+    val budgetLeft = (budgetProvider.monthlyBudget + totalIncome) - totalSpent
+
+    totalIncomeValue.setText("$" + f"${totalIncome.toDouble}%.2f")
     totalSpentValue.setText("$" + f"${totalSpent.toDouble}%.2f")
     budgetRemainingValue.setText("$" + f"${budgetLeft.toDouble}%.2f")
-    transactionCountValue.setText(monthlyExpenses.size.toString)
+    transactionCountValue.setText((monthlyExpenses.size + monthlyIncomes.size).toString)
 
   /** Creates a styled summary card used by dashboard metrics. */
   private def summaryCard(title: String, valueLabel: Label): VBox =
