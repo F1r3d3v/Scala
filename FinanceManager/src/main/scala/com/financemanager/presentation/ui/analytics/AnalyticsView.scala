@@ -49,7 +49,7 @@ final class AnalyticsView(dataSource: ExpenseDataSource):
     container
 
   refreshCharts()
-  dataSource.expenses.addListener((_: ListChangeListener.Change[? <: com.financemanager.model.Expense]) => refreshCharts())
+  dataSource.expenses.addListener(_ => refreshCharts())
 
   /** Refreshes all chart series from current data source values. */
   private def refreshCharts(): Unit =

@@ -8,6 +8,7 @@ import javafx.scene.control.{Label, Separator}
 import javafx.scene.layout.{HBox, Priority, VBox}
 
 import java.time.LocalDate
+import java.time.YearMonth
 import scala.jdk.CollectionConverters.*
 
 /**
@@ -38,13 +39,13 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
     container
 
   updateSummary()
-  dataSource.expenses.addListener((_: ListChangeListener.Change[? <: com.financemanager.model.Expense]) => updateSummary())
+  dataSource.expenses.addListener(_ => refreshCharts())
 
   /** Recomputes all summary values for the current month. */
   private def updateSummary(): Unit =
     val now = LocalDate.now()
     val monthlyExpenses = dataSource.expenses.asScala.filter { expense =>
-      expense.date.getMonthValue == now.getMonthValue && expense.date.getYear == now.getYear
+      YearMonth.from(expense.date) == YearMonth.from(now)
     }
 
     val totalSpent = monthlyExpenses.map(_.amount).sum
