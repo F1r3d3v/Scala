@@ -17,5 +17,5 @@ lazy val root = (project in file("."))
         "--add-modules=javafx.controls"
       )
     },
-    Compile / run / mainClass := Some("com.financemanager.app.Launcher")
+    Compile / run / mainClass := Some("com.financemanager.app.FinanceManagerApp")
   )
