@@ -20,5 +20,4 @@ This project contains a JavaFX-based presentation layer for a Personal Finance M
 sbt run
 ```
 
-The app starts with `InMemoryExpenseController` as a mock data/controller implementation.
-
+The app starts with SQLite persistence enabled and stores data in `finance.db`.

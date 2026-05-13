@@ -12,3 +12,4 @@ enum DomainError(val message: String):
   case InvalidCategory(msg: String) extends DomainError(msg)
   case InvalidDescription(msg: String) extends DomainError(msg)
   case NotFound(id: TransactionId) extends DomainError(s"Transaction with id ${id.value} not found")
+  case SystemError(msg: String) extends DomainError(msg)
