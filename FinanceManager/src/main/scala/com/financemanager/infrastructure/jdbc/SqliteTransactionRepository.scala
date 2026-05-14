@@ -7,8 +7,21 @@ import java.sql.Statement
 import java.time.LocalDate
 import scala.util.Using
 
+/**
+ * SQLite-backed implementation of the TransactionRepository.
+ *
+ * Defines standard operations on budget records persisting
+ * to an underlying JDBC SQLite database.
+ *
+ * @param dbManager database connection provider
+ */
 class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends TransactionRepository:
 
+  /**
+   * Retrieves all historical transaction records stored in the database.
+   *
+   * @return sequence containing parsed and available transactions
+   */
   override def findAll(): Seq[Transaction] =
     Using(dbManager.getConnection) { conn =>
       Using.resource(conn.createStatement()) { stmt =>
@@ -27,6 +40,12 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
       }
     }.getOrElse(Seq.empty)
 
+  /**
+   * Attempts resolving solitary transaction from the database by identifier.
+   *
+   * @param id wrapper for unique transaction reference
+   * @return option with Transaction match when successful
+   */
   override def findById(id: TransactionId): Option[Transaction] =
     Using(dbManager.getConnection) { conn =>
       Using.resource(conn.prepareStatement("SELECT id, date, amount, category_id, description, transaction_type FROM transactions WHERE id = ?")) { stmt =>
@@ -45,6 +64,13 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
       }
     }.toOption.flatten
 
+  /**
+   * Translates incoming domain data object into a new persisted record.
+   * Dispatches notifications to subscribers upon structural database update.
+   *
+   * @param input newly registered payload for an expense or income
+   * @return established and fully identified transaction record
+   */
   override def add(input: TransactionInput): Transaction =
     val result = Using(dbManager.getConnection) { conn =>
       Using.resource(conn.prepareStatement(
@@ -69,6 +95,14 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
     notifyListeners()
     result
 
+  /**
+   * Rewrites an existing targeted transaction given its specific identifier.
+   * Emits signal alerting dependents in the case of successful alteration.
+   *
+   * @param id domain ID targeting the modified data element
+   * @param input revised transactional data mapping
+   * @return a domain entity on success or matching error type if ID cannot be correlated
+   */
   override def replace(id: TransactionId, input: TransactionInput): Either[DomainError, Transaction] =
     findById(id) match
       case None => Left(DomainError.NotFound(id))
@@ -92,6 +126,13 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
         result.foreach(_ => notifyListeners())
         result
 
+  /**
+   * Purges designated transactional record from underlying permanent storage.
+   * Publishes notification allowing synchronous GUI refreshing after elimination.
+   *
+   * @param id logical index linked to item selected for deletion
+   * @return successful completion Unit, or NotFound failure
+   */
   override def remove(id: TransactionId): Either[DomainError, Unit] =
     findById(id) match
       case None => Left(DomainError.NotFound(id))

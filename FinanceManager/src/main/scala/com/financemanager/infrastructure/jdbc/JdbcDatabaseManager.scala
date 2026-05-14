@@ -5,13 +5,32 @@ import java.time.LocalDate
 import scala.util.Using
 import com.financemanager.config.AppConfig
 
+/**
+ * Manages the SQLite database connection and schema initialization.
+ *
+ * Provides methods for safely acquiring connections and ensuring that the
+ * required core tables and initial configuration seed values are established.
+ *
+ * @param dbUrl JDBC URL for the backend database
+ */
 class JdbcDatabaseManager(dbUrl: String):
 
   Class.forName("org.sqlite.JDBC")
 
+  /**
+   * Acquires a new database connection from the driver.
+   *
+   * @return active java.sql.Connection
+   */
   def getConnection: Connection =
     DriverManager.getConnection(dbUrl)
 
+  /**
+   * Initializes the core table structures required by the application.
+   *
+   * Idempotent method that ensures `categories` and `transactions` tables
+   * exist in the target database.
+   */
   def initializeSchema(): Unit =
     Using(getConnection) { conn =>
       Using.resource(conn.createStatement()) { stmt =>
@@ -38,6 +57,12 @@ class JdbcDatabaseManager(dbUrl: String):
       }
     }
 
+  /**
+   * Unconditionally checks and seeds initial categories into the database.
+   *
+   * Populates the predefined categories from the `AppConfig` but only if
+   * the `categories` table is entirely empty.
+   */
   def seedInitialCategories(): Unit =
     val categories = AppConfig.InitialCategories
     Using(getConnection) { conn =>
@@ -54,6 +79,12 @@ class JdbcDatabaseManager(dbUrl: String):
       }
     }
 
+  /**
+   * Validates the categories table and seeds missing starting values.
+   *
+   * Identical in behavior to `seedInitialCategories`, ensures the database
+   * has a working set of classification names to rely upon if completely empty.
+   */
   def ensureCategoriesSeeded(): Unit =
     val categories = AppConfig.InitialCategories
     Using(getConnection) { conn =>
@@ -69,4 +100,3 @@ class JdbcDatabaseManager(dbUrl: String):
           }
       }
     }
-

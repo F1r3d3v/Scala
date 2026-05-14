@@ -4,6 +4,14 @@ import com.financemanager.domain.model.{Category, CategoryId}
 import com.financemanager.domain.repository.CategoryRepository
 import scala.util.Using
 
+/**
+ * SQLite-backed implementation of the CategoryRepository.
+ *
+ * Manages category persistence and fetching from a relational database,
+ * utilizing an internal cache to reduce redundant DB reads.
+ *
+ * @param dbManager database manager handling connections and setup
+ */
 class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryRepository:
 
   private var cache: Map[CategoryId, Category] = Map.empty
@@ -11,6 +19,11 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
   dbManager.ensureCategoriesSeeded()
   refreshCache()
 
+  /**
+   * Retrieves all categories presently in the database.
+   *
+   * @return a map consisting of Category ID as a key and Category data as a value
+   */
   private def loadCache(): Map[CategoryId, Category] =
     Using(dbManager.getConnection) { conn =>
       Using.resource(conn.createStatement()) { stmt =>
@@ -24,16 +37,31 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
       }
     }.getOrElse(Map.empty)
 
+  /**
+   * Reloads internal cached data from the database.
+   * If retrieved cache is empty, enforces initial categories configuration.
+   */
   private def refreshCache(): Unit =
     cache = loadCache()
     if cache.isEmpty then
       dbManager.ensureCategoriesSeeded()
       cache = loadCache()
 
+  /**
+   * Retrieves all configured categories, fetching from DB if cache has not been populated.
+   *
+   * @return sorted sequence of available `Category` items
+   */
   override def findAll(): Seq[Category] =
     if cache.isEmpty then refreshCache()
     cache.values.toSeq.sortBy(_.name)
 
+  /**
+   * Persists a new category matching the specified name into the repository.
+   *
+   * @param category textual name assigned to the new category
+   * @return generated Category model instance including assigned unique identifier
+   */
   override def add(category: String): Category =
     val result = Using(dbManager.getConnection) { conn =>
       Using.resource(conn.prepareStatement(
@@ -53,6 +81,11 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
     notifyListeners()
     result
 
+  /**
+   * Drops category with matching identifier from the persistent storage.
+   *
+   * @param id identifier of targeted category
+   */
   override def remove(id: CategoryId): Unit =
     Using(dbManager.getConnection) { conn =>
       Using.resource(conn.prepareStatement("DELETE FROM categories WHERE id = ?")) { stmt =>
@@ -63,4 +96,10 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
     refreshCache()
     notifyListeners()
 
+  /**
+   * Examines cache for a category identified by the specified ID.
+   *
+   * @param id numeric category identifier
+   * @return optional Category instance if tracked
+   */
   def findById(id: CategoryId): Option[Category] = cache.get(id)
