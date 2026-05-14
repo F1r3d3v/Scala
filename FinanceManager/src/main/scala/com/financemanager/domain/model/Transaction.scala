@@ -1,6 +1,17 @@
-package com.financemanager.model
+package com.financemanager.domain.model
 
+import com.financemanager.domain.model.CategoryId
 import java.time.LocalDate
+
+/**
+ * Unique identifier for a persisted transaction.
+ */
+opaque type TransactionId = Long
+
+object TransactionId:
+  def apply(value: Long): TransactionId = value
+  extension (id: TransactionId)
+    def value: Long = id
 
 /**
  * Represents a persisted transaction entry displayed in the application.
@@ -10,15 +21,15 @@ import java.time.LocalDate
  * @param amount transaction amount in currency units
  * @param category user-facing category label
  * @param description free-text description of the transaction
- * @param isIncome flag indicating whether this entry is an income (true) or an expense (false)
+ * @param transactionType classification as income or expense
  */
 final case class Transaction(
-    id: Long,
+    id: TransactionId,
     date: LocalDate,
     amount: BigDecimal,
-    category: String,
+    category: CategoryId,
     description: String,
-    isIncome: Boolean
+    transactionType: TransactionType
 )
 
 /**
@@ -28,13 +39,18 @@ final case class Transaction(
  * @param amount transaction amount in currency units
  * @param category user-facing category label
  * @param description free-text description of the transaction
- * @param isIncome flag indicating whether this entry is an income (true) or an expense (false)
+ * @param transactionType classification as income or expense
  */
 final case class TransactionInput(
     date: LocalDate,
     amount: BigDecimal,
-    category: String,
+    category: CategoryId,
     description: String,
-    isIncome: Boolean
+    transactionType: TransactionType
 )
 
+/**
+ * Classification of a transaction as income or expense.
+ */
+enum TransactionType:
+  case Income, Expense

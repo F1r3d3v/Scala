@@ -1,20 +1,16 @@
-package com.financemanager.presentation.ui.dashboard
+package com.financemanager.presentation.view
 
-import com.financemanager.presentation.contracts.{BudgetProvider, ExpenseDataSource}
-import javafx.collections.ListChangeListener
+import com.financemanager.presentation.*
+import com.financemanager.presentation.DisplayModels.*
 import javafx.geometry.Insets
 import javafx.scene.Node
 import javafx.scene.control.{Label, Separator}
 import javafx.scene.layout.{HBox, Priority, VBox}
 
-import java.time.LocalDate
-import java.time.YearMonth
-import scala.jdk.CollectionConverters.*
-
 /**
- * Displays monthly summary cards based on current expenses and configured budget.
+ * View for the dashboard tab, responsible for rendering summary cards.
  */
-final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetProvider):
+final class DashboardView extends DashboardViewContract:
   private val totalSpentValue = new Label("$0.00")
   private val totalIncomeValue = new Label("$0.00")
   private val budgetRemainingValue = new Label("$0.00")
@@ -24,9 +20,7 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
   private val incomeCard = summaryCard("Total Income", totalIncomeValue)
   private val budgetCard = summaryCard("Budget Remaining", budgetRemainingValue)
   private val transactionCard = summaryCard("Transactions This Month", transactionCountValue)
-  
-  
-  /** Root node rendered in the Dashboard tab. */
+
   val root: Node =
     val container = new VBox(16)
     container.setPadding(new Insets(20))
@@ -41,29 +35,12 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
     container.getChildren.addAll(title, cards, new Separator(), tip)
     container
 
-  updateSummary()
-  dataSource.expenses.addListener(_ => updateSummary())
+  override def displaySummary(summary: DashboardDisplay): Unit =
+    totalIncomeValue.setText(summary.totalIncome)
+    totalSpentValue.setText(summary.totalSpent)
+    budgetRemainingValue.setText(summary.budgetRemaining)
+    transactionCountValue.setText(summary.transactionCount.toString)
 
-  /** Recomputes all summary values for the current month. */
-  private def updateSummary(): Unit =
-    val now = LocalDate.now()
-    
-    // Split the data into two groups: Incomes and Expenses
-    val (monthlyIncomes, monthlyExpenses) = dataSource.expenses.asScala
-      .filter(e => YearMonth.from(e.date) == YearMonth.from(now))
-      .partition(_.isIncome)
-
-    val totalSpent = monthlyExpenses.map(_.amount).sum
-    val totalIncome = monthlyIncomes.map(_.amount).sum
-
-    val budgetLeft = (budgetProvider.monthlyBudget + totalIncome) - totalSpent
-
-    totalIncomeValue.setText("$" + f"${totalIncome.toDouble}%.2f")
-    totalSpentValue.setText("$" + f"${totalSpent.toDouble}%.2f")
-    budgetRemainingValue.setText("$" + f"${budgetLeft.toDouble}%.2f")
-    transactionCountValue.setText((monthlyExpenses.size + monthlyIncomes.size).toString)
-
-  /** Creates a styled summary card used by dashboard metrics. */
   private def summaryCard(title: String, valueLabel: Label): VBox =
     val card = new VBox(8)
     card.setPadding(new Insets(16))
@@ -72,7 +49,6 @@ final class DashboardView(dataSource: ExpenseDataSource, budgetProvider: BudgetP
 
     val titleLabel = new Label(title)
     titleLabel.setStyle("-fx-text-fill: #4a4a4a;")
-
     valueLabel.setStyle("-fx-font-size: 24; -fx-font-weight: bold;")
 
     HBox.setHgrow(card, Priority.ALWAYS)

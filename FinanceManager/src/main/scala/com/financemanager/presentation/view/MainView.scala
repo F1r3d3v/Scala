@@ -1,18 +1,21 @@
-package com.financemanager.presentation.ui.main
+package com.financemanager.presentation.view
 
 import javafx.scene.Node
 import javafx.scene.control.{Tab, TabPane}
 import javafx.scene.layout.BorderPane
 
 /**
- * Hosts the three main application sections inside a tabbed layout.
+ * Top-level view that composes dashboard, transactions, and analytics tabs.
+ *
+ * @param dashboardView root node for the dashboard tab
+ * @param transactionsView root node for the transactions tab
+ * @param analyticsView root node for the analytics tab
  */
 final class MainView(
     dashboardView: Node,
     transactionsView: Node,
     analyticsView: Node
 ):
-  /** Root node used as the main scene content. */
   val root: BorderPane =
     val tabs = new TabPane()
     tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE)

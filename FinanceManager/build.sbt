@@ -6,8 +6,10 @@ lazy val root = (project in file("."))
   .settings(
     name := "FinanceManager",
     libraryDependencies ++= Seq(
-      "org.scalafx" %% "scalafx" % scalaFxVersion
+      "org.scalafx" %% "scalafx" % scalaFxVersion,
+      "org.scalameta" %% "munit" % "1.1.1" % Test
     ),
+    testFrameworks += new TestFramework("munit.Framework"),
     Compile / run / fork := true,
     Compile / run / javaOptions ++= {
       val javafxJars = (Compile / dependencyClasspath).value.files.filter(_.getName.startsWith("javafx-"))
@@ -17,5 +19,5 @@ lazy val root = (project in file("."))
         "--add-modules=javafx.controls"
       )
     },
-    Compile / run / mainClass := Some("com.financemanager.app.Launcher")
+    Compile / run / mainClass := Some("com.financemanager.app.FinanceManagerApp")
   )
