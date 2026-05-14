@@ -11,7 +11,7 @@ object Extensions:
     /**
      * Formats a currency value with two decimal places.
      */
-    def moneyFormat: String = "$" + f"${bd.toDouble}%.2f"
+    def moneyFormat: String = if (bd >= 0) f"$$$bd%.2f" else f"-$$${bd.abs}%.2f"
 
   /**
    * Collection helpers for filtering and aggregating transactions.

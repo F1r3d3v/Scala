@@ -2,6 +2,7 @@ package com.financemanager.domain.service
 
 import com.financemanager.domain.model.Extensions.*
 import com.financemanager.domain.repository.TransactionRepository
+import java.time.YearMonth
 
 /**
  * Aggregated budget metrics for the dashboard.
@@ -25,7 +26,7 @@ final case class BudgetSummary(
  */
 final class BudgetService(repository: TransactionRepository):
   def computeSummary(): BudgetSummary =
-    val transactions = repository.findAll()
+    val transactions = repository.findAll().filterByMonth(YearMonth.now())
     val totalSpent = transactions.expensesOnly.totalAmount
     val totalIncome = transactions.incomesOnly.totalAmount
     val remaining = totalIncome - totalSpent

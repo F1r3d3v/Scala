@@ -35,13 +35,13 @@ final class AnalyticsService(repository: TransactionRepository, categoryReposito
   def spendingByCategory(): Seq[(String, BigDecimal)] =
     val transactions = repository.findAll()
     val categories = categoryRepository.findAll()
-    val nameById: Map[CategoryId, String] = categories.map(c => c.id -> c.name).toMap
+    val nameById = categories.map(c => c.id -> c.name).toMap
 
     transactions.expensesOnly
       .groupBy(_.category)
       .view.mapValues(_.totalAmount)
       .toSeq
-      .map { case (catId, amount) => nameById.getOrElse(catId, s"Unknown(${catId.value})") -> amount }
+      .map { case (catId, amount) => nameById.getOrElse(catId, s"Unknown") -> amount }
       .sortBy(-_._2)
 
   def spendingTrend(start: LocalDate, end: LocalDate): TrendResult =
@@ -67,6 +67,7 @@ final class AnalyticsService(repository: TransactionRepository, categoryReposito
         (0 to months).map(start.plusMonths(_))
 
     val sums = transactions.expensesOnly
+      .filter(t => !t.date.isBefore(start) && !t.date.isAfter(end))
       .groupBy(t => formatKey(t.date))
       .view.mapValues(_.map(_.amount).sum).toMap
 

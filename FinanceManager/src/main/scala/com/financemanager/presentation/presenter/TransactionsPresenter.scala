@@ -22,6 +22,7 @@ final class TransactionsPresenter(
 ) extends TransactionsPresenterContract:
 
   private var selectedId: Option[TransactionId] = None
+  private var categoryCache: Map[CategoryId, String] = Map.empty
 
   override def onViewCreated(): Unit =
     view.displayCategories(categoryService.getAll)
@@ -60,11 +61,11 @@ final class TransactionsPresenter(
     view.resetForm()
 
   private def refreshTransactions(): Unit =
+    categoryCache = categoryService.getAll.map(c => c.id -> c.name).toMap
     val displays = repository.findAll().map(buildTransactionDisplay)
     view.displayTransactions(displays)
 
   private def buildTransactionDisplay(t: Transaction): TransactionDisplay =
-    val nameById = categoryService.getAll.map(c => c.id -> c.name).toMap
-    val categoryName = nameById.getOrElse(t.category, s"Unknown")
+    val categoryName = categoryCache.getOrElse(t.category, s"Unknown")
     val prefix = if t.transactionType == TransactionType.Income then "+$" else "-$"
     TransactionDisplay(t.id, t.date.toString, prefix + f"${t.amount.toDouble}%.2f", t.amount, categoryName, t.description, t.transactionType)
