@@ -16,8 +16,7 @@ object AppConfig:
   val DbFileName = "finance.db"
 
   def getDatabasePath: Path =
-    // Keeping data in User Home is correct for a desktop application
-    // so that `sbt clean` doesn't delete user's financial data.
+    // Keeping data in User Home so that `sbt clean` doesn't delete user's financial data.
     Paths.get(System.getProperty("user.home"), DbDirectoryName, DbFileName)
 
   val InitialCategories: Seq[String] = Seq(
