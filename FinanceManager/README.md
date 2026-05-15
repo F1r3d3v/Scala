@@ -20,4 +20,4 @@ This project contains a JavaFX-based presentation layer for a Personal Finance M
 sbt run
 ```
 
-The app starts with SQLite persistence enabled and stores data in `finance.db`.
+The app starts with SQLite persistence enabled and stores data at `~/.financemanager/finance.db` by default.

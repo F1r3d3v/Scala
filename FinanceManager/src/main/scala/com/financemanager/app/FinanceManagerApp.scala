@@ -17,11 +17,8 @@ final class FinanceManagerApp extends Application:
   override def start(primaryStage: Stage): Unit =
     val dbPath = AppConfig.getDatabasePath
     Files.createDirectories(dbPath.getParent)
-    if !Files.exists(dbPath) then Files.createFile(dbPath)
-    println(s"FinanceManager DB path: ${dbPath.toAbsolutePath}")
     val dbManager = new JdbcDatabaseManager(s"jdbc:sqlite:${dbPath.toAbsolutePath}")
     dbManager.initializeSchema()
-    dbManager.ensureCategoriesSeeded()
 
     val categoryRepository = new SqliteCategoryRepository(dbManager)
     val repository = new SqliteTransactionRepository(dbManager)

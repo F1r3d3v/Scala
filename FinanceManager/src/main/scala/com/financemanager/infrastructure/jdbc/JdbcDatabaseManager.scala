@@ -1,7 +1,6 @@
 package com.financemanager.infrastructure.jdbc
 
 import java.sql.{Connection, DriverManager}
-import java.time.LocalDate
 import scala.util.Using
 import com.financemanager.config.AppConfig
 
@@ -23,7 +22,11 @@ class JdbcDatabaseManager(dbUrl: String):
    * @return active java.sql.Connection
    */
   def getConnection: Connection =
-    DriverManager.getConnection(dbUrl)
+    val conn = DriverManager.getConnection(dbUrl)
+    Using.resource(conn.createStatement()) { stmt =>
+      stmt.execute("PRAGMA foreign_keys = ON")
+    }
+    conn
 
   /**
    * Initializes the core table structures required by the application.
@@ -58,10 +61,10 @@ class JdbcDatabaseManager(dbUrl: String):
     }
 
   /**
-   * Unconditionally checks and seeds initial categories into the database.
+   * Checks whether initial categories need to be seeded into the database.
    *
-   * Populates the predefined categories from the `AppConfig` but only if
-   * the `categories` table is entirely empty.
+   * Populates the predefined categories from `AppConfig.InitialCategories`
+   * only if the `categories` table is entirely empty.
    */
   def seedInitialCategories(): Unit =
     val categories = AppConfig.InitialCategories
@@ -70,12 +73,18 @@ class JdbcDatabaseManager(dbUrl: String):
         val rs = stmt.executeQuery("SELECT COUNT(*) FROM categories")
         val isEmpty = rs.next() && rs.getInt(1) == 0
         if isEmpty then
-          Using.resource(conn.prepareStatement("INSERT OR IGNORE INTO categories (name) VALUES (?)")) { insertStmt =>
-            categories.foreach { name =>
-              insertStmt.setString(1, name)
-              insertStmt.executeUpdate()
+          val originalAutoCommit = conn.getAutoCommit
+          conn.setAutoCommit(false)
+          try
+            Using.resource(conn.prepareStatement("INSERT OR IGNORE INTO categories (name) VALUES (?)")) { insertStmt =>
+              categories.foreach { name =>
+                insertStmt.setString(1, name)
+                insertStmt.executeUpdate()
+              }
             }
-          }
+            conn.commit()
+          finally
+            conn.setAutoCommit(originalAutoCommit)
       }
     }
 
@@ -92,11 +101,17 @@ class JdbcDatabaseManager(dbUrl: String):
         val rs = stmt.executeQuery("SELECT COUNT(*) FROM categories")
         val isEmpty = rs.next() && rs.getInt(1) == 0
         if isEmpty then
-          Using.resource(conn.prepareStatement("INSERT OR IGNORE INTO categories (name) VALUES (?)")) { insertStmt =>
-            categories.foreach { name =>
-              insertStmt.setString(1, name)
-              insertStmt.executeUpdate()
+          val originalAutoCommit = conn.getAutoCommit
+          conn.setAutoCommit(false)
+          try
+            Using.resource(conn.prepareStatement("INSERT OR IGNORE INTO categories (name) VALUES (?)")) { insertStmt =>
+              categories.foreach { name =>
+                insertStmt.setString(1, name)
+                insertStmt.executeUpdate()
+              }
             }
-          }
+            conn.commit()
+          finally
+            conn.setAutoCommit(originalAutoCommit)
       }
     }

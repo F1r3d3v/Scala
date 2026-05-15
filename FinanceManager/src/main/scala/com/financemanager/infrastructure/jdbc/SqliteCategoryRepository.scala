@@ -35,7 +35,11 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
           b.put(id, Category(id, name))
         b.toMap
       }
-    }.getOrElse(Map.empty)
+    } match
+      case scala.util.Success(map) => map
+      case scala.util.Failure(err) =>
+        System.err.println(s"Failed to load categories: ${err.getMessage}")
+        Map.empty
 
   /**
    * Reloads internal cached data from the database.
@@ -64,18 +68,27 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
    */
   override def add(category: String): Category =
     val result = Using(dbManager.getConnection) { conn =>
-      Using.resource(conn.prepareStatement(
-        "INSERT INTO categories (name) VALUES (?)"
-      )) { stmt =>
+      val existingId = Using.resource(conn.prepareStatement("SELECT id FROM categories WHERE name = ?")) { stmt =>
         stmt.setString(1, category)
-        stmt.executeUpdate()
+        val rs = stmt.executeQuery()
+        if rs.next() then Some(rs.getLong("id")) else None
       }
-      Using.resource(conn.createStatement()) { stmt =>
-        val rs = stmt.executeQuery("SELECT last_insert_rowid()")
-        if rs.next() then
-          Category(CategoryId(rs.getLong(1)), category)
-        else throw new Exception("Failed to insert category")
-      }
+
+      existingId match
+        case Some(id) => Category(CategoryId(id), category)
+        case None =>
+          Using.resource(conn.prepareStatement(
+            "INSERT INTO categories (name) VALUES (?)"
+          )) { stmt =>
+            stmt.setString(1, category)
+            stmt.executeUpdate()
+          }
+          Using.resource(conn.createStatement()) { stmt =>
+            val rs = stmt.executeQuery("SELECT last_insert_rowid()")
+            if rs.next() then
+              Category(CategoryId(rs.getLong(1)), category)
+            else throw new IllegalStateException("Failed to insert category")
+          }
     }.get
     refreshCache()
     notifyListeners()
