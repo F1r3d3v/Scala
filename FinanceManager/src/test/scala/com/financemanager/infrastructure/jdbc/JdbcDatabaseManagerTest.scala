@@ -33,10 +33,10 @@ class JdbcDatabaseManagerTest extends FunSuite:
       }
     }
 
-  test("seedInitialCategories should insert the predefined initial categories when the table is empty"):
+  test("ensureCategoriesSeeded should insert the predefined initial categories when the table is empty"):
     withTempDb { manager =>
       manager.initializeSchema()
-      manager.seedInitialCategories()
+      manager.ensureCategoriesSeeded()
 
       Using(manager.getConnection) { conn =>
         Using.resource(conn.createStatement()) { stmt =>

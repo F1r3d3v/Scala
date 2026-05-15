@@ -61,38 +61,10 @@ class JdbcDatabaseManager(dbUrl: String):
     }
 
   /**
-   * Checks whether initial categories need to be seeded into the database.
-   *
-   * Populates the predefined categories from `AppConfig.InitialCategories`
-   * only if the `categories` table is entirely empty.
-   */
-  def seedInitialCategories(): Unit =
-    val categories = AppConfig.InitialCategories
-    Using(getConnection) { conn =>
-      Using.resource(conn.createStatement()) { stmt =>
-        val rs = stmt.executeQuery("SELECT COUNT(*) FROM categories")
-        val isEmpty = rs.next() && rs.getInt(1) == 0
-        if isEmpty then
-          val originalAutoCommit = conn.getAutoCommit
-          conn.setAutoCommit(false)
-          try
-            Using.resource(conn.prepareStatement("INSERT OR IGNORE INTO categories (name) VALUES (?)")) { insertStmt =>
-              categories.foreach { name =>
-                insertStmt.setString(1, name)
-                insertStmt.executeUpdate()
-              }
-            }
-            conn.commit()
-          finally
-            conn.setAutoCommit(originalAutoCommit)
-      }
-    }
-
-  /**
    * Validates the categories table and seeds missing starting values.
    *
-   * Identical in behavior to `seedInitialCategories`, ensures the database
-   * has a working set of classification names to rely upon if completely empty.
+   * Ensures the database has a working set of classification names
+   * to rely upon if the table is completely empty.
    */
   def ensureCategoriesSeeded(): Unit =
     val categories = AppConfig.InitialCategories
