@@ -32,7 +32,7 @@ final class AnalyticsPresenter(
 
   private def refresh(): Unit =
     val (start, end) = dateRange
-    val categoryData = analyticsService.spendingByCategory()
+    val categoryData = analyticsService.spendingByCategory(start, end)
       .map((cat, amount) => cat -> amount.toDouble)
     view.displayCategoryBreakdown(categoryData)
 

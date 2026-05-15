@@ -32,12 +32,13 @@ final case class TrendResult(points: Seq[(String, Double)], granularity: Granula
  * @param categoryRepository source of categories for display names
  */
 final class AnalyticsService(repository: TransactionRepository, categoryRepository: CategoryRepository):
-  def spendingByCategory(): Seq[(String, BigDecimal)] =
+  def spendingByCategory(start: LocalDate, end: LocalDate): Seq[(String, BigDecimal)] =
     val transactions = repository.findAll()
     val categories = categoryRepository.findAll()
     val nameById = categories.map(c => c.id -> c.name).toMap
 
     transactions.expensesOnly
+      .filter(t => !t.date.isBefore(start) && !t.date.isAfter(end))
       .groupBy(_.category)
       .view.mapValues(_.totalAmount)
       .toSeq

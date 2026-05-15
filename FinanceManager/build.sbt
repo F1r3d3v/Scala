@@ -7,6 +7,7 @@ lazy val root = (project in file("."))
     name := "FinanceManager",
     libraryDependencies ++= Seq(
       "org.scalafx" %% "scalafx" % scalaFxVersion,
+      "org.xerial" % "sqlite-jdbc" % "3.43.0.0",
       "org.scalameta" %% "munit" % "1.1.1" % Test
     ),
     testFrameworks += new TestFramework("munit.Framework"),

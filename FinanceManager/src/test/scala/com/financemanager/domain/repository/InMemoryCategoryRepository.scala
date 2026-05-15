@@ -3,9 +3,7 @@ package com.financemanager.domain.repository
 import com.financemanager.domain.model.{Category, CategoryId}
 
 /**
- * In-memory repository for categories, primarily for demos and tests.
- *
- * @param initialCategories seed data loaded at startup
+ * In-memory repository for categories, used in tests.
  */
 final class InMemoryCategoryRepository(initialCategories: Seq[Category] = Seq.empty) extends CategoryRepository:
   private var categories: Vector[Category] = initialCategories.toVector
@@ -23,3 +21,4 @@ final class InMemoryCategoryRepository(initialCategories: Seq[Category] = Seq.em
   override def remove(id: CategoryId): Unit =
     categories = categories.filterNot(c => c.id == id)
     notifyListeners()
+

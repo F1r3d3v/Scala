@@ -38,7 +38,7 @@ class AnalyticsServiceTest extends FunSuite:
       income(BigDecimal("1000"), now, 4)
     )
     val categoryRepo = new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Food"), Category(CategoryId(2L), "Transport"), Category(CategoryId(4L), "Salary")))
-    val result = new AnalyticsService(TestRepository(transactions*), categoryRepo).spendingByCategory()
+    val result = new AnalyticsService(TestRepository(transactions*), categoryRepo).spendingByCategory(now.minusDays(1), now.plusDays(1))
     assertEquals(result.size, 2, clue = "expected only expense categories to be included")
     assertEquals(result.find(_._1 == "Food").map(_._2), Some(BigDecimal("80")), clue = "expected Food to be aggregated")
     assertEquals(result.find(_._1 == "Transport").map(_._2), Some(BigDecimal("20")), clue = "expected Transport to be aggregated")
@@ -51,13 +51,13 @@ class AnalyticsServiceTest extends FunSuite:
       expense(BigDecimal("50"), now, "Medium", 3)
     )
     val categoryRepo = new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Small"), Category(CategoryId(2L), "Big"), Category(CategoryId(3L), "Medium")))
-    val result = new AnalyticsService(TestRepository(transactions*), categoryRepo).spendingByCategory()
+    val result = new AnalyticsService(TestRepository(transactions*), categoryRepo).spendingByCategory(now.minusDays(1), now.plusDays(1))
     assertEquals(result.map(_._1), Seq("Big", "Medium", "Small"), clue = "expected categories sorted by descending amount")
 
   test("spendingByCategory with no expenses returns empty"):
     val now = LocalDate.now()
     val categoryRepo = new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Salary")))
-    val result = new AnalyticsService(TestRepository(income(BigDecimal("1000"), now)), categoryRepo).spendingByCategory()
+    val result = new AnalyticsService(TestRepository(income(BigDecimal("1000"), now)), categoryRepo).spendingByCategory(now.minusDays(1), now.plusDays(1))
     assertEquals(result, Seq.empty, clue = "expected no categories when there are no expenses")
 
   test("spendingTrend with short range uses daily granularity"):
