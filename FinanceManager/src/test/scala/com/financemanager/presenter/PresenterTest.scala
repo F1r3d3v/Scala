@@ -176,3 +176,27 @@ class AnalyticsPresenterTest extends FunSuite:
     presenter.onRangeChanged(TimeRangeSelection.Last3Months)
 
     assert(view.categoryData.nonEmpty, clue = "expected category data to remain populated after range change")
+
+  test("onRangeChanged filters data by range"):
+    val oldDate = now.minusMonths(10)
+    val transactions = Seq(
+      Transaction(TransactionId(1), now, BigDecimal("50"), CategoryId(1L), "Recent", TransactionType.Expense),
+      Transaction(TransactionId(2), oldDate, BigDecimal("100"), CategoryId(1L), "Old", TransactionType.Expense)
+    )
+    val repo = TestRepository(transactions*)
+    val view = MockAnalyticsView()
+    val categoryRepo = new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Food")))
+    val service = new AnalyticsService(repo, categoryRepo)
+    val presenter = AnalyticsPresenter(view, service, repo)
+
+    // Default range is Last 6 Months
+    presenter.onViewCreated()
+    assertEquals(view.categoryData.head._2, 50.0, clue = "expected only recent transaction in default 6M range")
+
+    // Change to Last 12 Months
+    presenter.onRangeChanged(TimeRangeSelection.Last12Months)
+    assertEquals(view.categoryData.head._2, 150.0, clue = "expected both transactions in 12M range")
+
+    // Change to custom range excluding the old one
+    presenter.onRangeChanged(TimeRangeSelection.Custom(now.minusDays(1), now.plusDays(1)))
+    assertEquals(view.categoryData.head._2, 50.0, clue = "expected only recent transaction in custom range")
