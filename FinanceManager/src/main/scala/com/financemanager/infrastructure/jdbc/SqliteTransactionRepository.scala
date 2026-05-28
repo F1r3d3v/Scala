@@ -157,3 +157,17 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
 
         result.foreach(_ => notifyListeners())
         result
+
+  /**
+   * Executes complete clearance of all transaction records from the database.
+   * Notifies dependents to trigger necessary UI updates after the purge.
+   */
+  override def removeAll(): Unit =
+    Using(dbManager.getConnection) { conn =>
+      Using.resource(conn.prepareStatement("DELETE FROM transactions")) { stmt =>
+        stmt.executeUpdate()
+      }
+    } match
+      case scala.util.Success(_) => notifyListeners()
+      case scala.util.Failure(err) =>
+        System.err.println(s"Failed to clear transactions: ${err.getMessage}")

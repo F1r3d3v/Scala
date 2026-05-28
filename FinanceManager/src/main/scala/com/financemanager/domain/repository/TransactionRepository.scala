@@ -12,3 +12,4 @@ trait TransactionRepository extends Subscribable:
   def add(input: TransactionInput): Transaction
   def replace(id: TransactionId, input: TransactionInput): Either[DomainError, Transaction]
   def remove(id: TransactionId): Either[DomainError, Unit]
+  def removeAll(): Unit
