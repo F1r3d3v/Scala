@@ -43,17 +43,3 @@ jobs:
       - name: Run tests
         working-directory: FinanceManager
         run: sbt test
-
-  ci:
-    name: CI Status
-    needs: [lint, test]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check results
-        run: |
-          if [ "${{ needs.lint.result }}" = "failure" ] || [ "${{ needs.test.result }}" = "failure" ]; then
-            echo "CI failed"
-            exit 1
-          fi
-          echo "CI passed"
