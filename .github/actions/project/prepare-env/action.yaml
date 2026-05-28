@@ -1,0 +1,17 @@
+name: Prepare Scala Environment
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup JDK
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-package: jdk
+        java-version: 26
+        cache: sbt
+        cache-dependency-path: |
+          **/build.sbt
+          **/project/plugins.sbt
+          **/project/build.properties
+    - uses: sbt/setup-sbt@v1

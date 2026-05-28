@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - release/latest
+      - 'release/v[0-9]+.[0-9]+.X'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: v${{ steps.curr.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        uses: ./.github/actions/project/get-project-version
+        id: curr
+
+      - name: Create tag via API
+        uses: ./.github/actions/shared/create-ref
+        with:
+          name: v${{ steps.curr.outputs.version }}
+          sha:  ${{ github.sha }}
+          type: tag
+          
+  publish:
+    name: Publish
+    needs: tag
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit
+
+  maintenance-branch:
+    name: Maintenance Branch
+    if: github.ref == 'refs/heads/release/latest'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check if this is a first release
+        id: first-release
+        run: |
+          root=$(git rev-list --max-parents=0 HEAD)
+          echo "skip=$( [ '${{ github.event.before }}' = "$root" ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+
+      - name: Extract version
+        id: curr
+        if: steps.first-release.outputs.skip == 'false'
+        uses: ./.github/actions/project/get-project-version
+
+      - name: Extract previous version
+        id: prev
+        if: steps.first-release.outputs.skip == 'false'
+        uses: ./.github/actions/project/get-project-version
+        with:
+          ref: ${{ github.event.before }}
+
+      - name: Create maintenance branch
+        if: |
+          steps.first-release.outputs.skip == 'false' &&
+          steps.prev.outputs.major-minor != steps.curr.outputs.major-minor
+        uses: ./.github/actions/shared/create-ref
+        with:
+          name: release/v${{ steps.prev.outputs.major-minor }}.X
+          sha:  ${{ github.event.before }}
+          type: branch
+
+  cleanup-tag:
+    name: Cleanup Tag on Failure
+    needs: [tag, publish]
+    if: always() && needs.publish.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const tag = '${{ needs.tag.outputs.tag }}';
+            const ref = `tags/${tag}`;
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref
+              });
+              core.info(`Cleaned up tag ${tag}`);
+            } catch (err) {
+              core.warning(`Failed to delete tag ${tag}: ${err.message}`);
+            }

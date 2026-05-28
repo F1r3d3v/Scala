@@ -1,0 +1,35 @@
+name: Check Linear History
+description: Fails if the branch contains any merge commits relative to the base
+
+inputs:
+  base-ref:
+    description: Base branch name
+    required: false
+    default: ${{ github.base_ref }}
+  head-sha:
+    description: Head commit SHA to inspect
+    required: false
+    default: ${{ github.event.pull_request.head.sha }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect merge commits
+      shell: bash
+      run: |
+        BASE="origin/${{ inputs.base-ref }}"
+        HEAD="${{ inputs.head-sha }}"
+
+        MERGES=$(git rev-list --merges "$BASE".."$HEAD" 2>/dev/null || true)
+
+        if [ -n "$MERGES" ]; then
+          echo "::error::Non-linear history detected. The following merge commits were found:"
+          git log --oneline --merges "$BASE".."$HEAD"
+          echo ""
+          echo "Fix with:"
+          echo "  git fetch origin"
+          echo "  git rebase -i origin/${{ inputs.base-ref }}"
+          exit 1
+        fi
+
+        echo "History is linear — no merge commits found"

@@ -1,0 +1,146 @@
+name: Get Version
+description: Extracts and parses a SemVer version from a file or command output
+
+inputs:
+  file:
+    description: Path to the file containing the version — mutually exclusive with 'command'
+    required: false
+  ref:
+    description: Git ref (branch, tag, or SHA) — only valid with 'file'
+    required: false
+    default: ${{ github.event.pull_request.head.sha }}
+  command:
+    description: Shell command whose output contains the version — mutually exclusive with 'file'
+    required: false
+  grep-pattern:
+    description: Extended regex to identify the version line — if sed-expression is omitted, -o is used to extract the match directly
+    required: false
+  sed-expression:
+    description: sed -E expression to extract the bare version string — if grep-pattern is omitted, applied to the full content
+    required: false
+
+outputs:
+  version:
+    description: Full version string e.g. 1.2.3-alpha.1+build.42
+    value: ${{ steps.parse.outputs.version }}
+  major:
+    description: Major component
+    value: ${{ steps.parse.outputs.major }}
+  minor:
+    description: Minor component
+    value: ${{ steps.parse.outputs.minor }}
+  patch:
+    description: Patch component
+    value: ${{ steps.parse.outputs.patch }}
+  major-minor:
+    description: Major.Minor e.g. 1.2
+    value: ${{ steps.parse.outputs.major-minor }}
+  pre-release:
+    description: Pre-release identifier e.g. alpha.1 (empty if none)
+    value: ${{ steps.parse.outputs.pre-release }}
+  build-metadata:
+    description: Build metadata e.g. build.42 (empty if none)
+    value: ${{ steps.parse.outputs.build-metadata }}
+  is-pre-release:
+    description: true if a pre-release identifier is present, false otherwise
+    value: ${{ steps.parse.outputs.is-pre-release }}
+  core:
+    description: Core version without pre-release or metadata e.g. 1.2.3
+    value: ${{ steps.parse.outputs.core }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve version string
+      id: resolve
+      shell: bash
+      run: |
+        FILE="${{ inputs.file }}"
+        REF="${{ inputs.ref }}"
+        COMMAND="${{ inputs.command }}"
+        
+        if [ -n "$FILE" ] && [ -n "$COMMAND" ]; then
+          echo "::error::Provide either 'file' or 'command', not both"
+          exit 1
+        fi
+        
+        if [ -n "$COMMAND" ]; then
+          if echo "$COMMAND" | grep -qE '(;|&&|\||`|\$\(|>|<|rm |rmdir |dd |mkfs |chmod |chown )'; then
+            echo "::error::Command contains disallowed patterns: $COMMAND"
+            exit 1
+          fi
+          echo "Running command: $COMMAND"
+          CONTENT=$(eval "$COMMAND" 2>/dev/null)
+          if [ -z "$CONTENT" ]; then
+            echo "::error::Command produced no output: $COMMAND"
+            exit 1
+          fi
+        elif [ -n "$FILE" ]; then
+          echo "Reading $FILE from ref: $REF"
+          CONTENT=$(git show "$REF:$FILE" 2>/dev/null)
+          if [ -z "$CONTENT" ]; then
+            echo "::error::Could not read $FILE from ref '$REF'"
+            exit 1
+          fi
+        else
+          echo "::error::Either 'file' or 'command' must be provided"
+          exit 1
+        fi
+        
+        GREP_PATTERN='${{ inputs.grep-pattern }}'
+        SED_EXPRESSION='${{ inputs.sed-expression }}'
+        if [ -n "$GREP_PATTERN" ]; then
+          if [ -n "$SED_EXPRESSION" ]; then
+            CONTENT=$(echo "$CONTENT" \
+              | grep -E "$GREP_PATTERN" \
+              | sed -E "$SED_EXPRESSION")
+          else
+            CONTENT=$(echo "$CONTENT" | grep -oE "$GREP_PATTERN")
+          fi
+        elif [ -n "$SED_EXPRESSION" ]; then
+          CONTENT=$(echo "$CONTENT" | sed -E "$SED_EXPRESSION")
+        fi
+        
+        VERSION=$(echo "$CONTENT" | head -n 1 | tr -d '[:space:]')
+        if [ -z "$VERSION" ]; then
+          echo "::error::Could not extract version"
+          exit 1
+        fi
+        
+        SEMVER_RE='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*))?(\+([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*))?$'
+        STRIPPED="${VERSION#v}"
+        if ! echo "$STRIPPED" | grep -qE "$SEMVER_RE"; then
+          echo "::error::Not a valid SemVer string: '$VERSION'"
+          exit 1
+        fi
+        
+        echo "raw-version=$STRIPPED" >> "$GITHUB_OUTPUT"
+    - name: Parse version components
+      id: parse
+      shell: bash
+      run: |
+        VERSION="${{ steps.resolve.outputs.raw-version }}"
+        CORE="${VERSION%%[-+]*}"
+        WITHOUT_META="${VERSION%%+*}"
+        PRE_RELEASE="${WITHOUT_META#*-}"
+        [ "$PRE_RELEASE" = "$WITHOUT_META" ] && PRE_RELEASE=""
+        BUILD_META="${VERSION#*+}"
+        [ "$BUILD_META" = "$VERSION" ] && BUILD_META=""
+        MAJOR=$(echo "$CORE" | cut -d. -f1)
+        MINOR=$(echo "$CORE" | cut -d. -f2)
+        PATCH=$(echo "$CORE" | cut -d. -f3)
+        IS_PRE=$( [ -n "$PRE_RELEASE" ] && echo "true" || echo "false" )
+        
+        echo "version=$VERSION"              >> "$GITHUB_OUTPUT"
+        echo "core=$CORE"                    >> "$GITHUB_OUTPUT"
+        echo "major=$MAJOR"                  >> "$GITHUB_OUTPUT"
+        echo "minor=$MINOR"                  >> "$GITHUB_OUTPUT"
+        echo "patch=$PATCH"                  >> "$GITHUB_OUTPUT"
+        echo "major-minor=$MAJOR.$MINOR"     >> "$GITHUB_OUTPUT"
+        echo "pre-release=$PRE_RELEASE"      >> "$GITHUB_OUTPUT"
+        echo "build-metadata=$BUILD_META"    >> "$GITHUB_OUTPUT"
+        echo "is-pre-release=$IS_PRE"        >> "$GITHUB_OUTPUT"
+        
+        echo "Parsed: $VERSION"
+        echo "  core=$CORE  major=$MAJOR  minor=$MINOR  patch=$PATCH"
+        echo "  pre-release=${PRE_RELEASE:-(none)}  build-metadata=${BUILD_META:-(none)}"

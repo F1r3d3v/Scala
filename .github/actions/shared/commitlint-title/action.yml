@@ -1,0 +1,36 @@
+name: Commitlint PR Title
+description: Validates a PR title against the Conventional Commits specification using commitlint
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Cache commitlint
+      uses: actions/cache@v4
+      with:
+        path: /tmp/commitlint
+        key: commitlint-${{ runner.os }}-node20
+
+    - name: Install commitlint
+      shell: bash
+      run: |
+        if [ ! -f /tmp/commitlint/node_modules/.bin/commitlint ]; then
+          npm install --silent --prefix /tmp/commitlint \
+            @commitlint/cli \
+            @commitlint/config-conventional
+        fi
+
+    - name: Validate PR title
+      shell: bash
+      run: |
+        echo '{"extends":["@commitlint/config-conventional"]}' \
+          > /tmp/commitlint.config.json
+
+        printf '%s' "${{ github.event.pull_request.title }}" \
+          | /tmp/commitlint/node_modules/.bin/commitlint \
+              --config /tmp/commitlint.config.json \
+          && echo "✓ PR title follows Conventional Commits: $PR_TITLE"

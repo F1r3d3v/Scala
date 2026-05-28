@@ -1,0 +1,24 @@
+name: Get Latest Tag
+description: Finds the latest SemVer tag (vX.Y.Z) in the repository
+
+outputs:
+  tag:
+    description: The latest SemVer tag (e.g. v1.2.3), empty string if none found
+    value: ${{ steps.find.outputs.tag }}
+
+runs:
+  using: composite
+  steps:
+    - id: find
+      shell: bash
+      run: |
+        TAG=$(git tag --sort=-version:refname \
+          | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+          | head -n 1 || echo "")
+        if [ -n "$TAG" ]; then
+          echo "Latest tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        else
+          echo "No tags found"
+          echo "tag=" >> "$GITHUB_OUTPUT"
+        fi

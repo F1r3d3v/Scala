@@ -1,0 +1,171 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: Linux-amd64
+            archive_ext: tar.gz
+          - os: macos-latest
+            arch: macOS-arm64
+            archive_ext: zip
+          - os: windows-latest
+            arch: Windows-amd64
+            archive_ext: zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Prepare environment
+        uses: ./.github/actions/project/prepare-env
+
+      - name: Build portable app-image
+        id: build
+        shell: bash
+        working-directory: FinanceManager
+        run: |
+          sbt jpackageAppImage
+          
+          APP_IMAGE=$(find dist/raw -mindepth 1 -maxdepth 1 | head -n 1)
+          if [ -z "$APP_IMAGE" ]; then
+            echo "::error::Produced no output in dist/raw"
+            exit 1
+          fi
+          
+          ARCHIVE="FinanceManager-${{ matrix.arch }}-portable.${{ matrix.archive_ext }}"
+          if [ "${{ matrix.archive_ext }}" = "zip" ]; then
+            cd "$(dirname "$APP_IMAGE")"
+            7z a "$OLDPWD/dist/$ARCHIVE" "$(basename "$APP_IMAGE")"
+          else
+            tar -czf "dist/$ARCHIVE" \
+              -C "$(dirname "$APP_IMAGE")" "$(basename "$APP_IMAGE")"
+          fi
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "Archived: dist/$ARCHIVE"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          path: FinanceManager/dist/${{ steps.build.outputs.archive }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 1
+
+  check-latest:
+    name: Check Latest
+    runs-on: ubuntu-latest
+    outputs:
+      latest: ${{ steps.check.outputs.latest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Find greatest existing tag
+        id: greatest
+        uses: ./.github/actions/shared/get-latest-tag
+
+      - name: Compare against greatest
+        id: cmp
+        if: steps.greatest.outputs.tag != ''
+        uses: ./.github/actions/shared/compare-versions
+        with:
+          a: ${{ inputs.tag }}
+          b: ${{ steps.greatest.outputs.tag }}
+
+      - name: Decide
+        id: check
+        shell: bash
+        run: |
+          if [ -z "${{ steps.greatest.outputs.tag }}" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.cmp.outputs.equal }}" = "true" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  release:
+    name: GitHub Release
+    needs: [build, check-latest]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Find previous tag
+        id: prev-tag
+        uses: ./.github/actions/shared/get-latest-tag
+
+      - name: Determine previous ref
+        id: prev-ref
+        shell: bash
+        run: |
+          TAG="${{ steps.prev-tag.outputs.tag }}"
+          if [ -n "$TAG" ] && [ "$TAG" != "${{ inputs.tag }}" ]; then
+            echo "ref=$TAG" >> "$GITHUB_OUTPUT"
+            echo "Previous tag: $TAG"
+          elif [ "$TAG" = "${{ inputs.tag }}" ]; then
+            TAG2=$(git tag --sort=-version:refname \
+                | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                | grep -v "^${{ inputs.tag }}$" \
+                | head -n 1 || echo "")
+            if [ -n "$TAG2" ]; then
+              echo "ref=$TAG2" >> "$GITHUB_OUTPUT"
+              echo "Previous tag: $TAG2"
+            else
+              ROOT=$(git rev-list --max-parents=0 HEAD)
+              echo "ref=$ROOT" >> "$GITHUB_OUTPUT"
+              echo "No previous tag — using root commit: $ROOT"
+            fi
+          else
+            ROOT=$(git rev-list --max-parents=0 HEAD)
+            echo "ref=$ROOT" >> "$GITHUB_OUTPUT"
+            echo "No previous tag — using root commit: $ROOT"
+          fi
+
+      - name: Generate changelog
+        id: changelog
+        uses: ./.github/actions/shared/generate-changelog
+        with:
+          from-ref:           ${{ steps.prev-ref.outputs.ref }}
+          to-ref:             ${{ inputs.tag }}
+          trigger-commit-sha: ${{ github.sha }}
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+          skip-decompress: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name:               ${{ inputs.tag }}
+          name:                   ${{ inputs.tag }}
+          body:                   ${{ steps.changelog.outputs.changelog }}
+          files:                  artifacts/*
+          generate_release_notes: false
+          make_latest:            ${{ needs.check-latest.outputs.latest }}
+          overwrite_files:        false
