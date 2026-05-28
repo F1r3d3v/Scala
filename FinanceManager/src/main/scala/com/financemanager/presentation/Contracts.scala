@@ -3,6 +3,7 @@ package com.financemanager.presentation
 import com.financemanager.domain.model.{Category, TransactionId, TransactionInput, TransactionType}
 
 import java.time.LocalDate
+import java.nio.file.Path
 
 /**
  * UI-specific models used to decouple presenters from views.
@@ -83,6 +84,8 @@ trait TransactionsPresenterContract:
   def onDelete(id: TransactionId): Unit
   def onTransactionSelected(id: TransactionId): Unit
   def onClearSelection(): Unit
+  def onImport(path: Path): Unit
+  def onExport(path: Path): Unit
 
 /**
  * Presenter actions initiated by the dashboard view.

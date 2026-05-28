@@ -1,6 +1,6 @@
 package com.financemanager.app
 
-import com.financemanager.domain.service.{AnalyticsService, BudgetService, CategoryService, TransactionService}
+import com.financemanager.domain.service.{AnalyticsService, BudgetService, CategoryService, ImportExportService, TransactionService}
 import com.financemanager.infrastructure.jdbc.{JdbcDatabaseManager, SqliteCategoryRepository, SqliteTransactionRepository}
 import com.financemanager.presentation.presenter.{AnalyticsPresenter, DashboardPresenter, TransactionsPresenter}
 import com.financemanager.presentation.view.{AnalyticsView, DashboardView, MainView, TransactionsView}
@@ -27,13 +27,14 @@ final class FinanceManagerApp extends Application:
     val budgetService = new BudgetService(repository)
     val analyticsService = new AnalyticsService(repository, categoryRepository)
     val categoryService = new CategoryService(categoryRepository)
+    val importExportService = new ImportExportService(repository)
 
     val dashboardView = new DashboardView()
     val transactionsView = new TransactionsView()
     val analyticsView = new AnalyticsView()
 
     val dashboardPresenter = DashboardPresenter(dashboardView, budgetService, repository)
-    val transactionsPresenter = TransactionsPresenter(transactionsView, transactionService, categoryService, repository)
+    val transactionsPresenter = TransactionsPresenter(transactionsView, transactionService, categoryService, repository, importExportService)
     val analyticsPresenter = AnalyticsPresenter(analyticsView, analyticsService, repository)
 
     transactionsView.presenter = transactionsPresenter
