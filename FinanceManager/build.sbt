@@ -116,4 +116,4 @@ lazy val root = (project in file("."))
     },
     jpackageAppImage := (jpackageAppImage dependsOn (Universal / stage)).value
   )
-  
+
