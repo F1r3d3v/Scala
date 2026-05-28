@@ -1,12 +1,11 @@
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.8.3"
-lazy val scalaFxVersion = "26.0.0-R38"
 
 lazy val root = (project in file("."))
   .settings(
     name := "FinanceManager",
     libraryDependencies ++= Seq(
-      "org.scalafx" %% "scalafx" % scalaFxVersion,
+      "org.scalafx" %% "scalafx" % "26.0.0-R38",
       "org.xerial" % "sqlite-jdbc" % "3.43.0.0",
       "org.scalameta" %% "munit" % "1.1.1" % Test
     ),
@@ -14,9 +13,12 @@ lazy val root = (project in file("."))
     Compile / run / fork := true,
     Compile / run / javaOptions ++= {
       val javafxJars = (Compile / dependencyClasspath).value.files.filter(_.getName.startsWith("javafx-"))
+      val sqlJars = (Compile / dependencyClasspath).value.files.filter(_.getName.startsWith("sqlite-jdbc"))
+      val modulePaths = javafxJars ++ sqlJars
       Seq(
         "--enable-native-access=javafx.graphics",
-        "--module-path", javafxJars.map(_.getAbsolutePath).mkString(java.io.File.pathSeparator),
+        "--enable-native-access=org.xerial.sqlitejdbc",
+        "--module-path", modulePaths.map(_.getAbsolutePath).mkString(java.io.File.pathSeparator),
         "--add-modules=javafx.controls"
       )
     },
