@@ -28,7 +28,7 @@ class TransactionsPresenterTest extends FunSuite:
       service,
       new CategoryService(new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Food"), Category(CategoryId(2L), "Transport")))),
       repo,
-      new ImportExportService(repo)
+      new ImportExportService(repo, service)
     )
 
     presenter.onViewCreated()
@@ -46,7 +46,7 @@ class TransactionsPresenterTest extends FunSuite:
       service,
       new CategoryService(new InMemoryCategoryRepository()),
       repo,
-      new ImportExportService(repo)
+      new ImportExportService(repo, service)
     )
     presenter.onViewCreated()
 
@@ -65,7 +65,7 @@ class TransactionsPresenterTest extends FunSuite:
       service,
       new CategoryService(new InMemoryCategoryRepository()),
       repo,
-      new ImportExportService(repo)
+      new ImportExportService(repo, service)
     )
     presenter.onViewCreated()
 
@@ -79,12 +79,13 @@ class TransactionsPresenterTest extends FunSuite:
     val t = sampleTransaction(1, BigDecimal("50"), TransactionType.Expense)
     val repo = TestRepository(t)
     val view = MockTransactionsView()
+    val ts = TransactionService(repo)
     val presenter = TransactionsPresenter(
       view,
-      TransactionService(repo),
+      ts,
       new CategoryService(new InMemoryCategoryRepository()),
       repo,
-      new ImportExportService(repo)
+      new ImportExportService(repo, ts)
     )
     presenter.onViewCreated()
 
@@ -97,12 +98,13 @@ class TransactionsPresenterTest extends FunSuite:
     val t = sampleTransaction(1, BigDecimal("50"), TransactionType.Expense)
     val repo = TestRepository(t)
     val view = MockTransactionsView()
+    val ts = TransactionService(repo)
     val presenter = TransactionsPresenter(
       view,
-      TransactionService(repo),
+      ts,
       new CategoryService(new InMemoryCategoryRepository()),
       repo,
-      new ImportExportService(repo)
+      new ImportExportService(repo, ts)
     )
     presenter.onViewCreated()
 
@@ -114,12 +116,13 @@ class TransactionsPresenterTest extends FunSuite:
   test("onDelete non-existent shows error"):
     val repo = TestRepository()
     val view = MockTransactionsView()
+    val ts = TransactionService(repo)
     val presenter = TransactionsPresenter(
       view,
-      TransactionService(repo),
+      ts,
       new CategoryService(new InMemoryCategoryRepository()),
       repo,
-      new ImportExportService(repo)
+      new ImportExportService(repo, ts)
     )
     presenter.onViewCreated()
 
@@ -130,12 +133,13 @@ class TransactionsPresenterTest extends FunSuite:
   test("onClearSelection resets form"):
     val repo = TestRepository()
     val view = MockTransactionsView()
+    val ts = TransactionService(repo)
     val presenter = TransactionsPresenter(
       view,
-      TransactionService(repo),
+      ts,
       new CategoryService(new InMemoryCategoryRepository()),
       repo,
-      new ImportExportService(repo)
+      new ImportExportService(repo, ts)
     )
     presenter.onViewCreated()
 
@@ -147,12 +151,13 @@ class TransactionsPresenterTest extends FunSuite:
     val t = sampleTransaction(1, BigDecimal("50"), TransactionType.Expense)
     val repo = TestRepository(t)
     val view = MockTransactionsView()
+    val ts = TransactionService(repo)
     val presenter = TransactionsPresenter(
       view,
-      TransactionService(repo),
+      ts,
       new CategoryService(new InMemoryCategoryRepository()),
       repo,
-      new ImportExportService(repo)
+      new ImportExportService(repo, ts)
     )
     presenter.onViewCreated()
 

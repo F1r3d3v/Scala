@@ -15,7 +15,7 @@ final class ExporterCSV[T](path: Path, codec: CsvCodec[T], includeHeader: Boolea
         val payload = data.map(codec.encode).map(CsvFormat.renderRow)
         if includeHeader then CsvFormat.renderRow(codec.headers) +: payload else payload
 
-      val content = rows.mkString(System.lineSeparator())
+      val content = rows.mkString(CsvFormat.CRLF)
       val parent = path.getParent
       if parent != null then Files.createDirectories(parent)
       Files.write(path, content.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)

@@ -4,7 +4,7 @@ import com.financemanager.IO.Exporters.ExporterCSV
 import com.financemanager.IO.Importers.ImporterCSV
 import com.financemanager.IO.csv.{CsvFormat, TransactionCsvCodec}
 import com.financemanager.domain.model.{CategoryId, Transaction, TransactionId, TransactionInput, TransactionType}
-import com.financemanager.domain.service.ImportExportService
+import com.financemanager.domain.service.{ImportExportService, TransactionService}
 import com.financemanager.testutil.TestRepository
 
 import java.nio.charset.StandardCharsets
@@ -25,7 +25,7 @@ class ImportExportServiceTest extends FunSuite:
 
     val exporter = ExporterCSV(tempFile, TransactionCsvCodec.transaction)
 
-    val service = ImportExportService(repo)
+    val service = ImportExportService(repo, TransactionService(repo))
     val result = service.exportTransactions(exporter)
     assert(result.isRight, clue = "expected export to succeed")
 
@@ -63,12 +63,12 @@ class ImportExportServiceTest extends FunSuite:
       CsvFormat.renderRow(TransactionCsvCodec.transaction.encode(input(1)))
     )
 
-    Files.write(tempFile, csvLines.mkString(System.lineSeparator()).getBytes(StandardCharsets.UTF_8))
+    Files.write(tempFile, csvLines.mkString(CsvFormat.CRLF).getBytes(StandardCharsets.UTF_8))
 
     val repo = TestRepository()
     val importer = ImporterCSV(tempFile, TransactionCsvCodec.transaction)
 
-    val service = ImportExportService(repo)
+    val service = ImportExportService(repo, TransactionService(repo))
     val result = service.importTransactions(importer)
     assert(result.isRight, clue = "expected import to succeed")
     assertEquals(repo.findAll().size, 2, clue = "expected imported transactions to be persisted")

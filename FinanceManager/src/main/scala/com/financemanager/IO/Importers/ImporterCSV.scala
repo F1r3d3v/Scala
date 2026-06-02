@@ -6,7 +6,6 @@ import com.financemanager.IO.csv.{CsvCodec, CsvFormat}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
-import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 final class ImporterCSV[T](path: Path, codec: CsvCodec[T], hasHeader: Boolean = true) extends Loader[Seq[T]]:
@@ -14,45 +13,39 @@ final class ImporterCSV[T](path: Path, codec: CsvCodec[T], hasHeader: Boolean = 
     if !Files.exists(path) then Left(IOError.FileNotFound(path.toString))
     else
       Try {
-        val lines = Files.readAllLines(path, StandardCharsets.UTF_8).asScala.toList
-        val dataLines =
-          if hasHeader then
-            validateHeader(lines).map(_ => lines.drop(1))
-          else Right(lines)
-
-        dataLines.flatMap(parseLines)
+        val content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8)
+        CsvFormat.parseRecords(content).left.map(err => IOError.ReadError(path.toString, err))
       }.toEither
         .left.map(ex => IOError.ReadError(path.toString, ex.getMessage))
         .flatMap(identity)
+        .flatMap(records => processRecords(records))
 
-  private def validateHeader(lines: List[String]): Either[IOError, Unit] =
-    lines.headOption match
-      case None => Left(IOError.EndOfFile(path.toString))
-      case Some(headerLine) =>
-        CsvFormat.parseLine(headerLine).left.map(err => IOError.ReadError(path.toString, err)).flatMap { header =>
-          val normalized = header.map(_.trim)
-          if normalized == codec.headers then Right(())
-          else Left(IOError.ReadError(path.toString, s"Invalid CSV header. Expected ${codec.headers.mkString(",")}"))
-        }
+  private def processRecords(records: Seq[Seq[String]]): Either[IOError, Seq[T]] =
+    if records.isEmpty then Left(IOError.EndOfFile(path.toString))
+    else
+      val (headerRow, dataRows) =
+        if hasHeader then (records.head, records.drop(1)) else (null, records)
 
-  private def parseLines(lines: List[String]): Either[IOError, Seq[T]] =
-    val parsed = lines.zipWithIndex.collect {
-      case (line, index) if line.trim.nonEmpty =>
-        val lineNumber = if hasHeader then index + 2 else index + 1
-        parseLine(line, lineNumber)
-    }
+      for
+        _ <- if hasHeader then validateHeader(headerRow) else Right(())
+        result <- parseRows(dataRows)
+      yield result
 
-    parsed.foldLeft[Either[IOError, List[T]]](Right(Nil)) { (acc, next) =>
+  private def validateHeader(header: Seq[String]): Either[IOError, Unit] =
+    val normalized = header.map(_.trim)
+    if normalized == codec.headers then Right(())
+    else Left(IOError.ReadError(path.toString, s"Invalid CSV header. Expected ${codec.headers.mkString(",")}"))
+
+  private def parseRows(rows: Seq[Seq[String]]): Either[IOError, Seq[T]] =
+    val headerOffset = if hasHeader then 1 else 0
+    rows.zipWithIndex.foldLeft[Either[IOError, List[T]]](Right(Nil)) { (acc, pair) =>
+      val (fields, index) = pair
+      val lineNumber = index + headerOffset + 1
       for
         values <- acc
-        value <- next
+        value <- codec.decode(fields).left.map(err => IOError.ReadError(path.toString, s"Line $lineNumber: ${decodeMessage(err)}"))
       yield value :: values
     }.map(_.reverse)
-
-  private def parseLine(line: String, lineNumber: Int): Either[IOError, T] =
-    CsvFormat.parseLine(line)
-      .left.map(err => IOError.ReadError(path.toString, s"Line $lineNumber: $err"))
-      .flatMap(fields => codec.decode(fields).left.map(err => IOError.ReadError(path.toString, s"Line $lineNumber: ${decodeMessage(err)}")))
 
   private def decodeMessage(error: IOError): String =
     error match

@@ -34,7 +34,7 @@ final class TransactionService(repository: TransactionRepository):
     existing.transactionType != input.transactionType ||
     existing.date != input.date
 
-  private def validate(input: TransactionInput): Either[DomainError, Unit] =
+  private[service] def validate(input: TransactionInput): Either[DomainError, Unit] =
     if input.amount <= 0 then Left(DomainError.InvalidAmount("Amount must be greater than zero"))
     else if input.category.value <= 0 then Left(DomainError.InvalidCategory("Category is required"))
     else if input.description.trim.isEmpty then Left(DomainError.InvalidDescription("Description is required"))

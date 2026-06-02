@@ -30,7 +30,7 @@ final class ImportExportService(
         transactionService
           .validate(input)
           .left
-          .map(error => IOError(error.toString))
+          .map(error => IOError.ReadError("", error.toString))
           .map(_ => validInputs :+ input)
       }
     }
