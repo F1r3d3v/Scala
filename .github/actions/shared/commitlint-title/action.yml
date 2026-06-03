@@ -33,4 +33,4 @@ runs:
         printf '%s' "${{ github.event.pull_request.title }}" \
           | /tmp/commitlint/node_modules/.bin/commitlint \
               --config /tmp/commitlint.config.json \
-          && echo "✓ PR title follows Conventional Commits: $PR_TITLE"
+          && echo "✓ PR title follows Conventional Commits"
