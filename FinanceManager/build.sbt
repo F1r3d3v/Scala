@@ -6,7 +6,8 @@ lazy val jpackageAppImage = taskKey[Unit]("Prepare JARs and run jpackage to prod
 
 lazy val nativeAccessOpts = Seq(
   "--enable-native-access=javafx.graphics",
-  "--enable-native-access=org.xerial.sqlitejdbc"
+  "--enable-native-access=org.xerial.sqlitejdbc",
+  "--add-reads=org.xerial.sqlitejdbc=ALL-UNNAMED"
 )
 
 lazy val root = (project in file("."))
@@ -17,10 +18,10 @@ lazy val root = (project in file("."))
       "org.openjfx" % "javafx-controls" % "26.0.1",
       "com.typesafe.slick" %% "slick" % "3.6.1",
       "org.slf4j" % "slf4j-nop" % "2.0.18",
-      "org.xerial" % "sqlite-jdbc" % "3.43.0.0",
       "com.nrinaudo" %% "kantan.csv" % "0.8.0" cross CrossVersion.for3Use2_13,
       "com.nrinaudo" %% "kantan.csv-java8" % "0.8.0" cross CrossVersion.for3Use2_13,
-      "org.scalameta" %% "munit" % "1.1.1" % Test
+      "org.xerial" % "sqlite-jdbc" % "3.53.2.0",
+      "org.scalameta" %% "munit" % "1.3.2" % Test
     ),
     testFrameworks += new TestFramework("munit.Framework"),
     Compile / run / fork := true,
@@ -116,5 +117,11 @@ lazy val root = (project in file("."))
       val exit = cmd.!
       if (exit != 0) sys.error(s"jpackage failed with exit code $exit")
     },
-    jpackageAppImage := (jpackageAppImage dependsOn (Universal / stage)).value
+    jpackageAppImage := (jpackageAppImage dependsOn (Universal / stage)).value,
+
+    Test / fork := true,
+    Test / javaOptions ++= Seq(
+      "--enable-native-access=org.xerial.sqlitejdbc",
+      "--add-reads=org.xerial.sqlitejdbc=ALL-UNNAMED"
+    )
   )

@@ -35,8 +35,8 @@ object SlickTables:
 
   class TransactionsTable(tag: Tag) extends Table[Transaction](tag, "transactions"):
     def id = column[TransactionId]("id", O.PrimaryKey, O.AutoInc)
-    def date = column[LocalDate]("date")
-    def amount = column[BigDecimal]("amount")
+    def date = column[LocalDate]("date")(using localDateMapper)
+    def amount = column[BigDecimal]("amount")(using bigDecimalMapper)
     def categoryId = column[CategoryId]("category_id")
     def description = column[String]("description")
     def transactionType = column[TransactionType]("transaction_type")
