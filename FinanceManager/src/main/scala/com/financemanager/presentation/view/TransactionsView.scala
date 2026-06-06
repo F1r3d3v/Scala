@@ -6,10 +6,14 @@ import com.financemanager.presentation.DisplayModels.*
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.collections.FXCollections
 import javafx.geometry.Insets
+import javafx.geometry.Pos
+import javafx.geometry.Side
 import javafx.scene.Node
 import javafx.scene.control.*
-import javafx.scene.layout.{GridPane, HBox, Priority, VBox}
+import javafx.scene.layout.{GridPane, HBox, Priority, VBox, Region}
+import javafx.stage.FileChooser
 
+import java.nio.file.Path
 import java.time.LocalDate
 import scala.compiletime.uninitialized
 import scala.util.Try
@@ -60,6 +64,18 @@ final class TransactionsView extends TransactionsViewContract:
   private val clearButton = new Button("Clear")
   private val isIncomeCheckbox = new CheckBox("Mark as Income")
 
+  private val importItem = new MenuItem("Import")
+  private val exportItem = new MenuItem("Export")
+  private val importExportMenu = new ContextMenu(importItem, exportItem)
+  private val importExportButton = new Button("☰")
+  importExportButton.setOnAction(_ =>
+    if importExportMenu.isShowing then importExportMenu.hide()
+    else importExportMenu.show(importExportButton, Side.BOTTOM, 0, 0)
+  )
+
+  importItem.setOnAction(_ => chooseCsvFile(isImport = true).foreach(presenter.onImport))
+  exportItem.setOnAction(_ => chooseCsvFile(isImport = false).foreach(presenter.onExport))
+
   val root: Node =
     val container = new VBox(14)
     container.setPadding(new Insets(20))
@@ -67,8 +83,13 @@ final class TransactionsView extends TransactionsViewContract:
     val title = new Label("Transactions")
     title.setStyle("-fx-font-size: 24; -fx-font-weight: bold;")
 
+    val headerSpacer = new Region()
+    HBox.setHgrow(headerSpacer, Priority.ALWAYS)
+    val header = new HBox(10, title, headerSpacer, importExportButton)
+    header.setAlignment(Pos.CENTER_LEFT)
+
     VBox.setVgrow(table, Priority.ALWAYS)
-    container.getChildren.addAll(title, table, formSection)
+    container.getChildren.addAll(header, table, formSection)
     container
 
   table.getSelectionModel.selectedItemProperty.addListener((_, _, selected) =>
@@ -143,6 +164,16 @@ final class TransactionsView extends TransactionsViewContract:
     buildInput() match
       case Left(error) => displayError(error)
       case Right(input) => presenter.onSubmit(input)
+
+  private def chooseCsvFile(isImport: Boolean): Option[Path] =
+    val chooser = new FileChooser()
+    chooser.setTitle(if isImport then "Import Transactions CSV" else "Export Transactions CSV")
+    chooser.getExtensionFilters.add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"))
+    if !isImport then chooser.setInitialFileName("transactions.csv")
+
+    val window = Option(root.getScene).map(_.getWindow).orNull
+    val file = if isImport then chooser.showOpenDialog(window) else chooser.showSaveDialog(window)
+    Option(file).map(_.toPath)
 
   private def buildInput(): Either[String, TransactionInput] =
     val date = Option(datePicker.getValue)

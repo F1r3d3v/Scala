@@ -1,10 +1,15 @@
 package com.financemanager.presentation.presenter
 
+import com.financemanager.IO.Exporters.ExporterCSV
+import com.financemanager.IO.Importers.ImporterCSV
+import com.financemanager.IO.csv.TransactionCsvCodec.{*, given}
 import com.financemanager.domain.model.{CategoryId, Transaction, TransactionId, TransactionInput, TransactionType}
 import com.financemanager.domain.repository.TransactionRepository
-import com.financemanager.domain.service.{CategoryService, TransactionService}
+import com.financemanager.domain.service.{CategoryService, ImportExportService, TransactionService}
 import com.financemanager.presentation.*
 import com.financemanager.presentation.DisplayModels.*
+
+import java.nio.file.Path
 
 /**
  * Presenter coordinating transaction CRUD between view and services.
@@ -13,12 +18,14 @@ import com.financemanager.presentation.DisplayModels.*
  * @param transactionService domain service for validation/persistence
  * @param categoryService domain service for category lookup
  * @param repository repository to observe for updates
+ * @param importExportService service for importing/exporting transactions
  */
 final class TransactionsPresenter(
     view: TransactionsViewContract,
     transactionService: TransactionService,
     categoryService: CategoryService,
-    repository: TransactionRepository
+    repository: TransactionRepository,
+    importExportService: ImportExportService
 ) extends TransactionsPresenterContract:
 
   private var selectedId: Option[TransactionId] = None
@@ -59,6 +66,18 @@ final class TransactionsPresenter(
   override def onClearSelection(): Unit =
     selectedId = None
     view.resetForm()
+
+  override def onImport(path: Path): Unit =
+    val importer = ImporterCSV(path)
+    importExportService.importTransactions(importer) match
+      case Left(err) => view.displayError(err.message)
+      case Right(_) => ()
+
+  override def onExport(path: Path): Unit =
+    val exporter = ExporterCSV(path)
+    importExportService.exportTransactions(exporter) match
+      case Left(err) => view.displayError(err.message)
+      case Right(_) => ()
 
   private def refreshTransactions(): Unit =
     categoryCache = categoryService.getAll.map(c => c.id -> c.name).toMap

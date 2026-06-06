@@ -40,5 +40,6 @@ object TestRepository:
           notifyListeners()
           Right(())
 
-
-
+    override def removeAll(): Unit =
+      transactions = Nil
+      notifyListeners()
