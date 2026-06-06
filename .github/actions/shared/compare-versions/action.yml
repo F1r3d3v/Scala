@@ -1,0 +1,95 @@
+name: Compare Versions
+description: Compares two SemVer strings according to the SemVer 2.0.0 spec
+
+inputs:
+  a:
+    description: Left-hand version (e.g. 1.2.3-alpha.1)
+    required: true
+  b:
+    description: Right-hand version (e.g. 1.2.3)
+    required: true
+
+outputs:
+  result:
+    description: '"greater", "less", or "equal"'
+    value: ${{ steps.compare.outputs.result }}
+  a-is-greater:
+    description: '''true'' if a > b'
+    value: ${{ steps.compare.outputs.a-is-greater }}
+  b-is-greater:
+    description: '''true'' if b > a'
+    value: ${{ steps.compare.outputs.b-is-greater }}
+  equal:
+    description: '''true'' if a == b (build metadata ignored per spec)'
+    value: ${{ steps.compare.outputs.equal }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compare
+      id: compare
+      shell: bash
+      run: |
+        strip() { echo "${1#v}" | cut -d'+' -f1; }
+        A=$(strip "${{ inputs.a }}")
+        B=$(strip "${{ inputs.b }}")
+
+        core()    { echo "${1%%-*}"; }
+        pre()     { local p="${1#*-}"; [ "$p" = "$1" ] && echo "" || echo "$p"; }
+
+        A_CORE=$(core "$A"); A_PRE=$(pre "$A")
+        B_CORE=$(core "$B"); B_PRE=$(pre "$B")
+
+        cmp_id() {
+          local X="$1" Y="$2"
+          if echo "$X$Y" | grep -qE '^[0-9]+$'; then
+            [ "$X" -eq "$Y" ] && echo 0 && return
+            [ "$X" -gt "$Y" ] && echo 1 || echo 2
+          else
+            [ "$X" = "$Y"  ] && echo 0 && return
+            [ "$X" \< "$Y" ] && echo 2 || echo 1
+          fi
+        }
+
+        cmp_ids() {
+          local IFS='.'
+          local -a XS=($1) YS=($2)
+          local LEN=$(( ${#XS[@]} > ${#YS[@]} ? ${#XS[@]} : ${#YS[@]} ))
+          for (( i=0; i<LEN; i++ )); do
+            local X="${XS[$i]:-}" Y="${YS[$i]:-}"
+            [ -z "$X" ] && echo 2 && return
+            [ -z "$Y" ] && echo 1 && return
+            local R=$(cmp_id "$X" "$Y")
+            [ "$R" -ne 0 ] && echo "$R" && return
+          done
+          echo 0
+        }
+
+        CORE_R=$(cmp_ids "$A_CORE" "$B_CORE")
+
+        if [ "$CORE_R" -ne 0 ]; then
+          R="$CORE_R"
+        else
+          if [ -z "$A_PRE" ] && [ -z "$B_PRE" ]; then
+            R=0
+          elif [ -z "$A_PRE" ]; then
+            R=1
+          elif [ -z "$B_PRE" ]; then
+            R=2
+          else
+            R=$(cmp_ids "$A_PRE" "$B_PRE")
+          fi
+        fi
+
+        case "$R" in
+          0) RESULT="equal"  ; A_GT="false"; B_GT="false" ;;
+          1) RESULT="greater"; A_GT="true" ; B_GT="false" ;;
+          2) RESULT="less"   ; A_GT="false"; B_GT="true"  ;;
+        esac
+
+        echo "result=$RESULT"          >> "$GITHUB_OUTPUT"
+        echo "a-is-greater=$A_GT"      >> "$GITHUB_OUTPUT"
+        echo "b-is-greater=$B_GT"      >> "$GITHUB_OUTPUT"
+        echo "equal=$( [ $R -eq 0 ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+        
+        echo "${{ inputs.a }} vs ${{ inputs.b }} → $RESULT"

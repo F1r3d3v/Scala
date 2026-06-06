@@ -1,0 +1,84 @@
+name: PR (maintenance)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ['release/v[0-9]+.[0-9]+.X']
+
+concurrency:
+  group: pr-maintenance-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Linear History
+        uses: ./.github/actions/shared/linear-history
+
+      - name: Validate all commits are fix type
+        shell: bash
+        run: |
+          FAILED=0
+          while IFS= read -r line; do
+            SHA="${line%% *}"
+            MSG="${line#* }"
+            if ! echo "$MSG" | grep -qE '^fix(\([^)]*\))?!?:[[:space:]]'; then
+              echo "::error::Commit $SHA does not use the 'fix' type: $MSG"
+              FAILED=1
+            fi
+          done < <(git log origin/${{ github.base_ref }}...${{ github.event.pull_request.head.sha }} \
+                     --format="%H %s" --no-merges)
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "All commits on maintenance branches must use the 'fix' commit type."
+            echo "  Expected: fix: <description>"
+            echo "            fix(scope): <description>"
+            exit 1
+          fi
+
+      - name: Get current version
+        id: current
+        uses: ./.github/actions/project/get-project-version
+
+      - name: Get base version
+        id: base
+        uses: ./.github/actions/project/get-project-version
+        with:
+          ref: origin/${{ github.base_ref }}
+
+      - name: Validate only PATCH is bumped
+        shell: bash
+        run: |
+          cur="${{ steps.current.outputs.version }}"
+          base="${{ steps.base.outputs.version }}"
+          cur_major=$(echo "$cur"  | cut -d. -f1)
+          cur_minor=$(echo "$cur"  | cut -d. -f2)
+          cur_patch=$(echo "$cur"  | cut -d. -f3 | grep -oE '^[0-9]+')
+          base_major=$(echo "$base" | cut -d. -f1)
+          base_minor=$(echo "$base" | cut -d. -f2)
+          base_patch=$(echo "$base" | cut -d. -f3 | grep -oE '^[0-9]+')
+          if [ "$cur_major" != "$base_major" ] || [ "$cur_minor" != "$base_minor" ]; then
+            echo "::error::Only PATCH may be bumped on a maintenance branch."
+            echo ""
+            echo "  Base    : $base"
+            echo "  Current : $cur"
+            echo "  MAJOR or MINOR changed — this is not permitted on release/* branches."
+            exit 1
+          fi
+          if [ "$cur_patch" -le "$base_patch" ]; then
+            echo "::error::PATCH version must be incremented."
+            echo ""
+            echo "  Base patch    : $base_patch"
+            echo "  Current patch : $cur_patch"
+            exit 1
+          fi
+          echo "Version bump: $base → $cur"

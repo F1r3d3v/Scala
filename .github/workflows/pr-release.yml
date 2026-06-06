@@ -1,0 +1,60 @@
+name: PR (release)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [release/latest]
+
+concurrency:
+  group: pr-release-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Linear History
+        uses: ./.github/actions/shared/linear-history
+
+      - name: Get current version
+        id: current
+        uses: ./.github/actions/project/get-project-version
+
+      - name: Get last released tag
+        id: last-tag
+        uses: ./.github/actions/shared/get-latest-tag
+
+      - name: Get tag version
+        id: tag-ver
+        if: steps.last-tag.outputs.tag != ''
+        uses: ./.github/actions/project/get-project-version
+        with:
+          ref: ${{ steps.last-tag.outputs.tag }}
+
+      - name: Assert version is greater
+        if: steps.last-tag.outputs.tag != ''
+        id: cmp
+        uses: ./.github/actions/shared/compare-versions
+        with:
+          a: ${{ steps.current.outputs.version }}
+          b: ${{ steps.tag-ver.outputs.version }}
+
+      - name: Verify version is greater
+        if: steps.last-tag.outputs.tag != ''
+        shell: bash
+        run: |
+          if [ "${{ steps.cmp.outputs.a-is-greater }}" != "true" ]; then
+            echo "::error::Version must be greater than the last release."
+            echo "  Last release : ${{ steps.tag-ver.outputs.version }}"
+            echo "  Current      : ${{ steps.current.outputs.version }}"
+            exit 1
+          fi
+          echo "Version bumped: ${{ steps.tag-ver.outputs.version }} → ${{ steps.current.outputs.version }}"
