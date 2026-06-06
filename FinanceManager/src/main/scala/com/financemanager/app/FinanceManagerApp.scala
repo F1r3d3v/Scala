@@ -1,7 +1,7 @@
 package com.financemanager.app
 
 import com.financemanager.domain.service.{AnalyticsService, BudgetService, CategoryService, ImportExportService, TransactionService}
-import com.financemanager.infrastructure.jdbc.{JdbcDatabaseManager, SqliteCategoryRepository, SqliteTransactionRepository}
+import com.financemanager.infrastructure.slick.{SlickDatabaseManager, SlickCategoryRepository, SlickTransactionRepository}
 import com.financemanager.presentation.presenter.{AnalyticsPresenter, DashboardPresenter, TransactionsPresenter}
 import com.financemanager.presentation.view.{AnalyticsView, DashboardView, MainView, TransactionsView}
 import com.financemanager.config.AppConfig
@@ -17,11 +17,11 @@ final class FinanceManagerApp extends Application:
   override def start(primaryStage: Stage): Unit =
     val dbPath = AppConfig.getDatabasePath
     Files.createDirectories(dbPath.getParent)
-    val dbManager = new JdbcDatabaseManager(s"jdbc:sqlite:${dbPath.toAbsolutePath}")
+    val dbManager = new SlickDatabaseManager(s"jdbc:sqlite:${dbPath.toAbsolutePath}")
     dbManager.initializeSchema()
 
-    val categoryRepository = new SqliteCategoryRepository(dbManager)
-    val repository = new SqliteTransactionRepository(dbManager)
+    val categoryRepository = new SlickCategoryRepository(dbManager)
+    val repository = new SlickTransactionRepository(dbManager)
 
     val transactionService = new TransactionService(repository)
     val budgetService = new BudgetService(repository)
