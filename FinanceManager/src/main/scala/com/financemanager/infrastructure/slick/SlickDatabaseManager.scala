@@ -8,7 +8,8 @@ import slick.jdbc.meta.MTable
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class SlickDatabaseManager(dbUrl : String):
-  val db = Database.forURL(dbUrl, driver = "org.sqlite.JDBC")
+  private val urlWithFk = if (dbUrl.contains("?")) s"$dbUrl&foreign_keys=ON" else s"$dbUrl?foreign_keys=ON"
+  val db = Database.forURL(urlWithFk, driver = "org.sqlite.JDBC")
 
   /**
    * Initializes schemas and handles category seeding.
