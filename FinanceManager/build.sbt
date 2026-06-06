@@ -7,6 +7,8 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "org.scalafx" %% "scalafx" % "26.0.0-R38",
       "org.xerial" % "sqlite-jdbc" % "3.43.0.0",
+      "com.nrinaudo" %% "kantan.csv" % "0.8.0" cross CrossVersion.for3Use2_13,
+      "com.nrinaudo" %% "kantan.csv-java8" % "0.8.0" cross CrossVersion.for3Use2_13,
       "org.scalameta" %% "munit" % "1.1.1" % Test
     ),
     testFrameworks += new TestFramework("munit.Framework"),
