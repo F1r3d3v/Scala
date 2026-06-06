@@ -15,6 +15,8 @@ lazy val root = (project in file("."))
     name := "FinanceManager",
     libraryDependencies ++= Seq(
       "org.openjfx" % "javafx-controls" % "26.0.1",
+      "com.typesafe.slick" %% "slick" % "3.6.1",
+      "org.slf4j" % "slf4j-nop" % "2.0.18",
       "org.xerial" % "sqlite-jdbc" % "3.43.0.0",
       "com.nrinaudo" %% "kantan.csv" % "0.8.0" cross CrossVersion.for3Use2_13,
       "com.nrinaudo" %% "kantan.csv-java8" % "0.8.0" cross CrossVersion.for3Use2_13,
@@ -116,4 +118,3 @@ lazy val root = (project in file("."))
     },
     jpackageAppImage := (jpackageAppImage dependsOn (Universal / stage)).value
   )
-
