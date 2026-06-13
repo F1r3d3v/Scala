@@ -23,12 +23,13 @@ class TransactionsPresenterTest extends FunSuite:
     val repo = TestRepository(sampleTransaction(1, BigDecimal("50"), TransactionType.Expense))
     val view = MockTransactionsView()
     val service = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Food"), Category(CategoryId(2L), "Transport"))))
     val presenter = TransactionsPresenter(
       view,
       service,
-      new CategoryService(new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Food"), Category(CategoryId(2L), "Transport")))),
+      categoryService,
       repo,
-      new ImportExportService(repo, service)
+      new ImportExportService(repo, service, categoryService)
     )
 
     presenter.onViewCreated()
@@ -41,12 +42,13 @@ class TransactionsPresenterTest extends FunSuite:
     val repo = TestRepository()
     val view = MockTransactionsView()
     val service = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository())
     val presenter = TransactionsPresenter(
       view,
       service,
-      new CategoryService(new InMemoryCategoryRepository()),
+      categoryService,
       repo,
-      new ImportExportService(repo, service)
+      new ImportExportService(repo, service, categoryService)
     )
     presenter.onViewCreated()
 
@@ -60,12 +62,13 @@ class TransactionsPresenterTest extends FunSuite:
     val repo = TestRepository()
     val view = MockTransactionsView()
     val service = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository())
     val presenter = TransactionsPresenter(
       view,
       service,
-      new CategoryService(new InMemoryCategoryRepository()),
+      categoryService,
       repo,
-      new ImportExportService(repo, service)
+      new ImportExportService(repo, service, categoryService)
     )
     presenter.onViewCreated()
 
@@ -80,12 +83,13 @@ class TransactionsPresenterTest extends FunSuite:
     val repo = TestRepository(t)
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository())
     val presenter = TransactionsPresenter(
       view,
       ts,
-      new CategoryService(new InMemoryCategoryRepository()),
+      categoryService,
       repo,
-      new ImportExportService(repo, ts)
+      new ImportExportService(repo, ts, categoryService)
     )
     presenter.onViewCreated()
 
@@ -99,12 +103,13 @@ class TransactionsPresenterTest extends FunSuite:
     val repo = TestRepository(t)
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository())
     val presenter = TransactionsPresenter(
       view,
       ts,
-      new CategoryService(new InMemoryCategoryRepository()),
+      categoryService,
       repo,
-      new ImportExportService(repo, ts)
+      new ImportExportService(repo, ts, categoryService)
     )
     presenter.onViewCreated()
 
@@ -117,12 +122,13 @@ class TransactionsPresenterTest extends FunSuite:
     val repo = TestRepository()
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository())
     val presenter = TransactionsPresenter(
       view,
       ts,
-      new CategoryService(new InMemoryCategoryRepository()),
+      categoryService,
       repo,
-      new ImportExportService(repo, ts)
+      new ImportExportService(repo, ts, categoryService)
     )
     presenter.onViewCreated()
 
@@ -134,12 +140,13 @@ class TransactionsPresenterTest extends FunSuite:
     val repo = TestRepository()
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository())
     val presenter = TransactionsPresenter(
       view,
       ts,
-      new CategoryService(new InMemoryCategoryRepository()),
+      categoryService,
       repo,
-      new ImportExportService(repo, ts)
+      new ImportExportService(repo, ts, categoryService)
     )
     presenter.onViewCreated()
 
@@ -152,12 +159,13 @@ class TransactionsPresenterTest extends FunSuite:
     val repo = TestRepository(t)
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository())
     val presenter = TransactionsPresenter(
       view,
       ts,
-      new CategoryService(new InMemoryCategoryRepository()),
+      categoryService,
       repo,
-      new ImportExportService(repo, ts)
+      new ImportExportService(repo, ts, categoryService)
     )
     presenter.onViewCreated()
 

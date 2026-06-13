@@ -27,7 +27,7 @@ final class FinanceManagerApp extends Application:
     val budgetService = new BudgetService(repository)
     val analyticsService = new AnalyticsService(repository, categoryRepository)
     val categoryService = new CategoryService(categoryRepository)
-    val importExportService = new ImportExportService(repository, transactionService)
+    val importExportService = new ImportExportService(repository, transactionService, categoryService)
 
     val dashboardView = new DashboardView()
     val transactionsView = new TransactionsView()

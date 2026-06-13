@@ -12,11 +12,14 @@ final class InMemoryCategoryRepository(initialCategories: Seq[Category] = Seq.em
   override def findAll(): Seq[Category] = categories
 
   override def add(category: String): Category =
-    val c = Category(CategoryId(nextRawId), category)
-    nextRawId += 1
-    categories = categories :+ c
-    notifyListeners()
-    c
+    categories.find(_.name.equalsIgnoreCase(category)) match
+      case Some(existing) => existing
+      case None =>
+        val c = Category(CategoryId(nextRawId), category)
+        nextRawId += 1
+        categories = categories :+ c
+        notifyListeners()
+        c
 
   override def remove(id: CategoryId): Unit =
     categories = categories.filterNot(c => c.id == id)
