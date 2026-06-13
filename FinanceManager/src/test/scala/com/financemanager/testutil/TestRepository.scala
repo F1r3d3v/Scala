@@ -1,7 +1,7 @@
 package com.financemanager.testutil
 
 import com.financemanager.domain.error.DomainError
-import com.financemanager.domain.model.{Transaction, TransactionId, TransactionInput}
+import com.financemanager.domain.model.{ImportMode, Transaction, TransactionId, TransactionInput}
 import com.financemanager.domain.repository.TransactionRepository
 
 /**
@@ -22,6 +22,19 @@ object TestRepository:
       transactions = transactions :+ t
       notifyListeners()
       t
+
+    override def importBatch(inputs: Seq[TransactionInput], mode: ImportMode): Seq[Transaction] =
+      if mode == ImportMode.Overwrite then transactions = Nil
+
+      val imported = inputs.map { input =>
+        val transaction = Transaction(TransactionId(nextId), input.date, input.amount, input.category, input.description, input.transactionType)
+        nextId += 1
+        transaction
+      }
+
+      transactions = transactions ++ imported
+      notifyListeners()
+      imported
 
     override def replace(id: TransactionId, input: TransactionInput): Either[DomainError, Transaction] =
       transactions.indexWhere(_.id == id) match

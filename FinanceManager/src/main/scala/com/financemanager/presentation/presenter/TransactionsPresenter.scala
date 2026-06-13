@@ -3,7 +3,7 @@ package com.financemanager.presentation.presenter
 import com.financemanager.IO.Exporters.ExporterCSV
 import com.financemanager.IO.Importers.ImporterCSV
 import com.financemanager.IO.csv.TransactionCsvCodec.{*, given}
-import com.financemanager.domain.model.{CategoryId, Transaction, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.model.{CategoryId, ImportMode, Transaction, TransactionId, TransactionInput, TransactionType}
 import com.financemanager.domain.repository.TransactionRepository
 import com.financemanager.domain.service.{CategoryService, ImportExportService, TransactionService}
 import com.financemanager.presentation.*
@@ -67,9 +67,9 @@ final class TransactionsPresenter(
     selectedId = None
     view.resetForm()
 
-  override def onImport(path: Path): Unit =
+  override def onImport(path: Path, mode: ImportMode): Unit =
     val importer = ImporterCSV(path)
-    importExportService.importTransactions(importer) match
+    importExportService.importTransactions(importer, mode) match
       case Left(err) => view.displayError(err.message)
       case Right(_) => ()
 

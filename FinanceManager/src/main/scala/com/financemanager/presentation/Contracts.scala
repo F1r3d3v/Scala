@@ -1,6 +1,6 @@
 package com.financemanager.presentation
 
-import com.financemanager.domain.model.{Category, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.model.{Category, ImportMode, TransactionId, TransactionInput, TransactionType}
 
 import java.time.LocalDate
 import java.nio.file.Path
@@ -84,7 +84,7 @@ trait TransactionsPresenterContract:
   def onDelete(id: TransactionId): Unit
   def onTransactionSelected(id: TransactionId): Unit
   def onClearSelection(): Unit
-  def onImport(path: Path): Unit
+  def onImport(path: Path, mode: ImportMode): Unit
   def onExport(path: Path): Unit
 
 /**

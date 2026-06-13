@@ -3,7 +3,7 @@ package com.financemanager.domain
 import com.financemanager.IO.Exporters.ExporterCSV
 import com.financemanager.IO.Importers.ImporterCSV
 import com.financemanager.IO.csv.TransactionCsvCodec.{*, given}
-import com.financemanager.domain.model.{CategoryId, Transaction, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.model.{CategoryId, ImportMode, Transaction, TransactionId, TransactionInput, TransactionType}
 import com.financemanager.domain.service.{ImportExportService, TransactionService}
 import com.financemanager.testutil.TestRepository
 import kantan.csv.*
@@ -64,8 +64,46 @@ class ImportExportServiceTest extends FunSuite:
     val importer = ImporterCSV(tempFile)
 
     val service = ImportExportService(repo, TransactionService(repo))
-    val result = service.importTransactions(importer)
+    val result = service.importTransactions(importer, ImportMode.Overwrite)
     assert(result.isRight, clue = "expected import to succeed")
     assertEquals(repo.findAll().size, 2, clue = "expected imported transactions to be persisted")
     assertEquals(repo.findAll().head.description, "Lunch")
     assertEquals(repo.findAll().last.amount, BigDecimal("120.00"))
+
+  test("append import keeps existing transactions and adds imported ones"):
+    val tempFile = Files.createTempFile("transactions", ".csv")
+    val existing = Transaction(TransactionId(7L), LocalDate.parse("2024-01-10"), BigDecimal("50.00"), CategoryId(3L), "Existing", TransactionType.Expense)
+    val importedInput = Seq(
+      TransactionInput(LocalDate.parse("2024-02-01"), BigDecimal("15.50"), CategoryId(1L), "Lunch", TransactionType.Expense)
+    )
+
+    val csvContent = importedInput.asCsv(rfc.withHeader)
+    Files.write(tempFile, csvContent.getBytes(StandardCharsets.UTF_8))
+
+    val repo = TestRepository(existing)
+    val importer = ImporterCSV(tempFile)
+
+    val service = ImportExportService(repo, TransactionService(repo))
+    val result = service.importTransactions(importer, ImportMode.Append)
+
+    assert(result.isRight, clue = "expected append import to succeed")
+    assertEquals(repo.findAll().map(_.description), Seq("Existing", "Lunch"))
+
+  test("overwrite import replaces existing transactions"):
+    val tempFile = Files.createTempFile("transactions", ".csv")
+    val existing = Transaction(TransactionId(7L), LocalDate.parse("2024-01-10"), BigDecimal("50.00"), CategoryId(3L), "Existing", TransactionType.Expense)
+    val importedInput = Seq(
+      TransactionInput(LocalDate.parse("2024-02-01"), BigDecimal("15.50"), CategoryId(1L), "Lunch", TransactionType.Expense)
+    )
+
+    val csvContent = importedInput.asCsv(rfc.withHeader)
+    Files.write(tempFile, csvContent.getBytes(StandardCharsets.UTF_8))
+
+    val repo = TestRepository(existing)
+    val importer = ImporterCSV(tempFile)
+
+    val service = ImportExportService(repo, TransactionService(repo))
+    val result = service.importTransactions(importer, ImportMode.Overwrite)
+
+    assert(result.isRight, clue = "expected overwrite import to succeed")
+    assertEquals(repo.findAll().map(_.description), Seq("Lunch"))

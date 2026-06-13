@@ -1,6 +1,6 @@
 package com.financemanager.presentation.view
 
-import com.financemanager.domain.model.{Category, TransactionId, TransactionInput, TransactionType, CategoryId}
+import com.financemanager.domain.model.{Category, CategoryId, ImportMode, TransactionId, TransactionInput, TransactionType}
 import com.financemanager.presentation.*
 import com.financemanager.presentation.DisplayModels.*
 import javafx.beans.property.ReadOnlyStringWrapper
@@ -73,7 +73,12 @@ final class TransactionsView extends TransactionsViewContract:
     else importExportMenu.show(importExportButton, Side.BOTTOM, 0, 0)
   )
 
-  importItem.setOnAction(_ => chooseCsvFile(isImport = true).foreach(presenter.onImport))
+  importItem.setOnAction(_ =>
+    for
+      mode <- chooseImportMode()
+      path <- chooseCsvFile(isImport = true)
+    do presenter.onImport(path, mode)
+  )
   exportItem.setOnAction(_ => chooseCsvFile(isImport = false).foreach(presenter.onExport))
 
   val root: Node =
@@ -174,6 +179,20 @@ final class TransactionsView extends TransactionsViewContract:
     val window = Option(root.getScene).map(_.getWindow).orNull
     val file = if isImport then chooser.showOpenDialog(window) else chooser.showSaveDialog(window)
     Option(file).map(_.toPath)
+
+  private def chooseImportMode(): Option[ImportMode] =
+    val appendLabel = "Append to existing data"
+    val overwriteLabel = "Replace existing data"
+    val dialog = new ChoiceDialog[String](appendLabel, appendLabel, overwriteLabel)
+    dialog.setTitle("Import mode")
+    dialog.setHeaderText("Choose how to import transactions")
+    dialog.setContentText("Mode:")
+
+    val window = Option(root.getScene).map(_.getWindow).orNull
+    dialog.initOwner(window)
+    Option(dialog.showAndWait().orElse(null)).map:
+      case `overwriteLabel` => ImportMode.Overwrite
+      case _ => ImportMode.Append
 
   private def buildInput(): Either[String, TransactionInput] =
     val date = Option(datePicker.getValue)

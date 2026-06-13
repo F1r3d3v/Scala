@@ -1,6 +1,7 @@
 package com.financemanager.domain.service
 
 import com.financemanager.domain.error.IOError
+import com.financemanager.domain.model.ImportMode
 import com.financemanager.traits.{Loader, Writer}
 import com.financemanager.domain.model.{Transaction, TransactionInput}
 import com.financemanager.domain.repository.TransactionRepository
@@ -10,11 +11,13 @@ final class ImportExportService(
   transactionService: TransactionService
 ):
 
-  def importTransactions(importer: Loader[Seq[TransactionInput]]): Either[IOError, Seq[Transaction]] =
+  def importTransactions(
+    importer: Loader[Seq[TransactionInput]],
+    mode: ImportMode
+  ): Either[IOError, Seq[Transaction]] =
     importer.load().flatMap { inputs =>
       validateImportedTransactions(inputs).map { validInputs =>
-        transactionRepository.removeAll()
-        validInputs.map(transactionRepository.add)
+        transactionRepository.importBatch(validInputs, mode)
       }
     }
 

@@ -1,7 +1,7 @@
 package com.financemanager.infrastructure.slick
 
 import com.financemanager.domain.error.DomainError
-import com.financemanager.domain.model.{Transaction, TransactionId, TransactionInput}
+import com.financemanager.domain.model.{ImportMode, Transaction, TransactionId, TransactionInput}
 import com.financemanager.domain.repository.TransactionRepository
 import slick.jdbc.SQLiteProfile.api._
 import scala.concurrent.Await
@@ -28,6 +28,27 @@ class SlickTransactionRepository(dbManager: SlickDatabaseManager) extends Transa
 
     notifyListeners()
     result
+
+  override def importBatch(inputs: Seq[TransactionInput], mode: ImportMode): Seq[Transaction] =
+    val insertQuery = (transactions.map(t => (t.date, t.amount, t.categoryId, t.description, t.transactionType))
+      returning transactions.map(_.id)
+      into ((tuple, id) => Transaction(id, tuple._1, tuple._2, tuple._3, tuple._4, tuple._5)))
+
+    val deleteExisting =
+      if mode == ImportMode.Overwrite then transactions.delete
+      else DBIO.successful(0)
+
+    val insertBatch = DBIO.sequence(inputs.map(input =>
+      insertQuery += (input.date, input.amount, input.category, input.description, input.transactionType)
+    ))
+
+    val imported = Await.result(
+      db.run(deleteExisting.andThen(insertBatch).transactionally),
+      Duration.Inf
+    )
+
+    notifyListeners()
+    imported
 
   override def replace(id: TransactionId, input: TransactionInput): Either[DomainError, Transaction] =
     val updateAction = transactions.filter(_.id === id)

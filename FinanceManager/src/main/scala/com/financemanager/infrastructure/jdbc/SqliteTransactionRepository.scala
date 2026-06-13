@@ -1,7 +1,7 @@
 package com.financemanager.infrastructure.jdbc
 
 import com.financemanager.domain.error.DomainError
-import com.financemanager.domain.model.{CategoryId, Transaction, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.model.{CategoryId, ImportMode, Transaction, TransactionId, TransactionInput, TransactionType}
 import com.financemanager.domain.repository.TransactionRepository
 import java.time.LocalDate
 import scala.util.Using
@@ -99,6 +99,55 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
         else throw new IllegalStateException("Failed to insert transaction")
       }
     }.get
+    notifyListeners()
+    result
+
+  override def importBatch(inputs: Seq[TransactionInput], mode: ImportMode): Seq[Transaction] =
+    val result = Using(dbManager.getConnection) { conn =>
+      val previousAutoCommit = conn.getAutoCommit
+      conn.setAutoCommit(false)
+
+      try
+        if mode == ImportMode.Overwrite then
+          Using.resource(conn.prepareStatement("DELETE FROM transactions"))(_.executeUpdate())
+
+        val insertSql =
+          "INSERT INTO transactions (date, amount, category_id, description, transaction_type) VALUES (?, ?, ?, ?, ?)"
+
+        val imported = inputs.map { input =>
+          Using.resource(conn.prepareStatement(insertSql)) { stmt =>
+            stmt.setString(1, input.date.toString)
+            stmt.setString(2, input.amount.toString)
+            stmt.setLong(3, input.category.value)
+            stmt.setString(4, input.description)
+            stmt.setString(5, input.transactionType.toString)
+            stmt.executeUpdate()
+          }
+
+          Using.resource(conn.createStatement()) { stmt =>
+            val rs = stmt.executeQuery("SELECT last_insert_rowid()")
+            if rs.next() then
+              Transaction(
+                TransactionId(rs.getLong(1)),
+                input.date,
+                input.amount,
+                input.category,
+                input.description,
+                input.transactionType
+              )
+            else throw new IllegalStateException("Failed to insert transaction")
+          }
+        }
+
+        conn.commit()
+        imported
+      catch
+        case err: Exception =>
+          conn.rollback()
+          throw err
+      finally conn.setAutoCommit(previousAutoCommit)
+    }.get
+
     notifyListeners()
     result
 
