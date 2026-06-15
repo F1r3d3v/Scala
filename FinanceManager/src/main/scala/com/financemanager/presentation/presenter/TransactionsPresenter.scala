@@ -5,7 +5,7 @@ import com.financemanager.IO.Importers.ImporterCSV
 import com.financemanager.IO.csv.TransactionCsvCodec.{*, given}
 import com.financemanager.domain.model.{CategoryId, ImportMode, Transaction, TransactionId, TransactionInput, TransactionType}
 import com.financemanager.domain.repository.TransactionRepository
-import com.financemanager.domain.service.{CategoryService, ImportExportService, TransactionService}
+import com.financemanager.domain.service.{CategoryMaintenanceService, CategoryService, ImportExportService, TransactionService}
 import com.financemanager.presentation.*
 import com.financemanager.presentation.DisplayModels.*
 
@@ -24,6 +24,7 @@ final class TransactionsPresenter(
     view: TransactionsViewContract,
     transactionService: TransactionService,
     categoryService: CategoryService,
+    categoryMaintenanceService: CategoryMaintenanceService,
     repository: TransactionRepository,
     importExportService: ImportExportService
 ) extends TransactionsPresenterContract:
@@ -32,9 +33,13 @@ final class TransactionsPresenter(
   private var categoryCache: Map[CategoryId, String] = Map.empty
 
   override def onViewCreated(): Unit =
-    view.displayCategories(categoryService.getAll)
+    refreshCategories()
     refreshTransactions()
     repository.subscribe(() => refreshTransactions())
+    categoryService.subscribe(() =>
+      refreshCategories()
+      refreshTransactions()
+    )
 
   override def onSubmit(input: TransactionInput): Unit =
     selectedId match
@@ -67,6 +72,21 @@ final class TransactionsPresenter(
     selectedId = None
     view.resetForm()
 
+  override def onAddCategory(name: String): Unit =
+    categoryService.add(name)
+
+  override def onDeleteCategory(id: CategoryId): Unit =
+    categoryMaintenanceService.previewDeletion(id) match
+      case None => view.displayError("Category not found")
+      case Some(preview) =>
+        val shouldDelete =
+          preview.assignedTransactionCount == 0 || view.confirmCategoryDeletion(preview)
+
+        if shouldDelete then
+          categoryMaintenanceService.deleteCategory(id) match
+            case Left(message) => view.displayError(message)
+            case Right(_) => ()
+
   override def onImport(path: Path, mode: ImportMode): Unit =
     val importer = ImporterCSV(path)
     importExportService.importTransactions(importer, mode) match
@@ -78,6 +98,9 @@ final class TransactionsPresenter(
     importExportService.exportTransactions(exporter) match
       case Left(err) => view.displayError(err.message)
       case Right(_) => ()
+
+  private def refreshCategories(): Unit =
+    view.displayCategories(categoryService.getAll)
 
   private def refreshTransactions(): Unit =
     categoryCache = categoryService.getAll.map(c => c.id -> c.name).toMap

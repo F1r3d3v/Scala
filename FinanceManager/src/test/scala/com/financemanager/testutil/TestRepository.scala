@@ -1,7 +1,7 @@
 package com.financemanager.testutil
 
 import com.financemanager.domain.error.DomainError
-import com.financemanager.domain.model.{ImportMode, Transaction, TransactionId, TransactionInput}
+import com.financemanager.domain.model.{CategoryId, ImportMode, Transaction, TransactionId, TransactionInput}
 import com.financemanager.domain.repository.TransactionRepository
 
 /**
@@ -35,6 +35,12 @@ object TestRepository:
       transactions = transactions ++ imported
       notifyListeners()
       imported
+
+    override def reassignCategory(from: CategoryId, to: CategoryId): Unit =
+      transactions = transactions.map(transaction =>
+        if transaction.category == from then transaction.copy(category = to) else transaction
+      )
+      notifyListeners()
 
     override def replace(id: TransactionId, input: TransactionInput): Either[DomainError, Transaction] =
       transactions.indexWhere(_.id == id) match

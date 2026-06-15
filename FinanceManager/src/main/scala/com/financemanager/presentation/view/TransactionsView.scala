@@ -1,16 +1,15 @@
 package com.financemanager.presentation.view
 
 import com.financemanager.domain.model.{Category, CategoryId, ImportMode, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.service.CategoryDeletionPreview
 import com.financemanager.presentation.*
 import com.financemanager.presentation.DisplayModels.*
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.collections.FXCollections
-import javafx.geometry.Insets
-import javafx.geometry.Pos
-import javafx.geometry.Side
+import javafx.geometry.{Insets, Pos, Side}
 import javafx.scene.Node
 import javafx.scene.control.*
-import javafx.scene.layout.{GridPane, HBox, Priority, VBox, Region}
+import javafx.scene.layout.{GridPane, HBox, Priority, Region, VBox}
 import javafx.stage.FileChooser
 
 import java.nio.file.Path
@@ -53,6 +52,10 @@ final class TransactionsView extends TransactionsViewContract:
   private var categoriesCache: Seq[Category] = Seq.empty
   categoryBox.setPromptText("Select category")
 
+  private val manageCategoriesButton = new Button("Edit")
+  manageCategoriesButton.setFocusTraversable(false)
+  manageCategoriesButton.setTooltip(new Tooltip("Manage categories"))
+
   private val descriptionField = new TextArea()
   descriptionField.setPromptText("Description")
   descriptionField.setPrefRowCount(3)
@@ -67,7 +70,7 @@ final class TransactionsView extends TransactionsViewContract:
   private val importItem = new MenuItem("Import")
   private val exportItem = new MenuItem("Export")
   private val importExportMenu = new ContextMenu(importItem, exportItem)
-  private val importExportButton = new Button("☰")
+  private val importExportButton = new Button("Menu")
   importExportButton.setOnAction(_ =>
     if importExportMenu.isShowing then importExportMenu.hide()
     else importExportMenu.show(importExportButton, Side.BOTTOM, 0, 0)
@@ -104,13 +107,16 @@ final class TransactionsView extends TransactionsViewContract:
   saveButton.setOnAction(_ => handleSubmit())
   deleteButton.setOnAction(_ => selectedDisplayId.foreach(presenter.onDelete))
   clearButton.setOnAction(_ => presenter.onClearSelection())
+  manageCategoriesButton.setOnAction(_ => showCategoryManager())
 
   override def displayTransactions(transactions: Seq[TransactionDisplay]): Unit =
     transactionsList.setAll(transactions*)
 
   override def displayCategories(categories: Seq[Category]): Unit =
+    val selectedName = Option(categoryBox.getSelectionModel.getSelectedItem)
     categoriesCache = categories
     categoryBox.setItems(FXCollections.observableArrayList(categories.map(_.name)*))
+    selectedName.foreach(name => if categories.exists(_.name == name) then categoryBox.getSelectionModel.select(name))
 
   override def displayError(message: String): Unit =
     val alert = new Alert(Alert.AlertType.ERROR)
@@ -118,6 +124,39 @@ final class TransactionsView extends TransactionsViewContract:
     alert.setHeaderText("Cannot save transaction")
     alert.setContentText(message)
     alert.showAndWait()
+
+  override def confirmCategoryDeletion(preview: CategoryDeletionPreview): Boolean =
+    val dialog = new Dialog[Boolean]()
+    dialog.setTitle("Delete category")
+    dialog.setHeaderText(null)
+    dialog.setGraphic(null)
+
+    val window = Option(root.getScene).map(_.getWindow).orNull
+    dialog.initOwner(window)
+
+    val deleteButtonType = new ButtonType("Delete", ButtonBar.ButtonData.OK_DONE)
+    dialog.getDialogPane.getButtonTypes.addAll(deleteButtonType, ButtonType.CANCEL)
+
+    val headline =
+      if preview.assignedTransactionCount > 0 then
+        s"""Category "${preview.category.name}" is assigned to ${preview.assignedTransactionCount} transaction(s)."""
+      else s"""Delete category "${preview.category.name}"?"""
+
+    val details =
+      if preview.assignedTransactionCount > 0 then
+        s"""Those transactions will be kept and reassigned to "${preview.replacementCategoryName}"."""
+      else "This action removes the category from the list."
+
+    val content = new VBox(
+      10,
+      new Label(headline),
+      new Label(details)
+    )
+    content.setPadding(new Insets(6, 12, 0, 12))
+    dialog.getDialogPane.setContent(content)
+    dialog.setResultConverter(buttonType => buttonType == deleteButtonType)
+
+    Option(dialog.showAndWait().orElse(false)).contains(true)
 
   override def resetForm(): Unit =
     selectedDisplayId = None
@@ -157,7 +196,12 @@ final class TransactionsView extends TransactionsViewContract:
     grid.add(new Label("Type"), 0, 2)
     grid.add(isIncomeCheckbox, 1, 2)
     grid.add(new Label("Category"), 2, 0)
-    grid.add(categoryBox, 3, 0)
+
+    val categoryControls = new HBox(8, categoryBox, manageCategoriesButton)
+    categoryControls.setAlignment(Pos.CENTER_LEFT)
+    HBox.setHgrow(categoryBox, Priority.ALWAYS)
+    grid.add(categoryControls, 3, 0)
+
     grid.add(new Label("Description"), 2, 1)
     grid.add(descriptionField, 3, 1)
 
@@ -181,18 +225,85 @@ final class TransactionsView extends TransactionsViewContract:
     Option(file).map(_.toPath)
 
   private def chooseImportMode(): Option[ImportMode] =
-    val appendLabel = "Append to existing data"
-    val overwriteLabel = "Replace existing data"
-    val dialog = new ChoiceDialog[String](appendLabel, appendLabel, overwriteLabel)
-    dialog.setTitle("Import mode")
-    dialog.setHeaderText("Choose how to import transactions")
-    dialog.setContentText("Mode:")
+    val dialog = new Dialog[ImportMode]()
+    dialog.setTitle("Import transactions")
+    dialog.setHeaderText(null)
+    dialog.setGraphic(null)
 
     val window = Option(root.getScene).map(_.getWindow).orNull
     dialog.initOwner(window)
-    Option(dialog.showAndWait().orElse(null)).map:
-      case `overwriteLabel` => ImportMode.Overwrite
-      case _ => ImportMode.Append
+
+    val continueButtonType = new ButtonType("Continue", ButtonBar.ButtonData.OK_DONE)
+    dialog.getDialogPane.getButtonTypes.addAll(continueButtonType, ButtonType.CANCEL)
+
+    val appendRadio = new RadioButton("Add imported transactions to the current list")
+    val overwriteRadio = new RadioButton("Replace current transactions with imported data")
+    val toggleGroup = new ToggleGroup()
+    appendRadio.setToggleGroup(toggleGroup)
+    overwriteRadio.setToggleGroup(toggleGroup)
+    appendRadio.setSelected(true)
+
+    val caption = new Label("Choose how the CSV should be applied.")
+    caption.setWrapText(true)
+
+    val content = new VBox(12, caption, appendRadio, overwriteRadio)
+    content.setPadding(new Insets(6, 12, 0, 12))
+    dialog.getDialogPane.setContent(content)
+
+    dialog.setResultConverter(buttonType =>
+      if buttonType == continueButtonType then
+        if overwriteRadio.isSelected then ImportMode.Overwrite else ImportMode.Append
+      else null
+    )
+
+    Option(dialog.showAndWait().orElse(null))
+
+  private def showCategoryManager(): Unit =
+    val dialog = new Dialog[Unit]()
+    dialog.setTitle("Categories")
+    dialog.setHeaderText(null)
+    dialog.setGraphic(null)
+
+    val window = Option(root.getScene).map(_.getWindow).orNull
+    dialog.initOwner(window)
+    dialog.getDialogPane.getButtonTypes.add(ButtonType.CLOSE)
+
+    val categoryList = new ListView[String](FXCollections.observableArrayList(categoriesCache.map(_.name)*))
+    categoryList.setPrefHeight(180)
+
+    val nameField = new TextField()
+    nameField.setPromptText("New category")
+
+    val addButton = new Button("Add")
+    val removeButton = new Button("Remove")
+    removeButton.disableProperty.bind(categoryList.getSelectionModel.selectedItemProperty.isNull)
+
+    addButton.setOnAction(_ =>
+      val trimmed = Option(nameField.getText).map(_.trim).getOrElse("")
+      if trimmed.nonEmpty then
+        presenter.onAddCategory(trimmed)
+        nameField.clear()
+        categoryList.setItems(FXCollections.observableArrayList(categoriesCache.map(_.name)*))
+    )
+
+    removeButton.setOnAction(_ =>
+      Option(categoryList.getSelectionModel.getSelectedItem)
+        .flatMap(name => categoriesCache.find(_.name == name))
+        .foreach { category =>
+          presenter.onDeleteCategory(category.id)
+          categoryList.setItems(FXCollections.observableArrayList(categoriesCache.map(_.name)*))
+        }
+    )
+
+    val addRow = new HBox(8, nameField, addButton)
+    addRow.setAlignment(Pos.CENTER_LEFT)
+    HBox.setHgrow(nameField, Priority.ALWAYS)
+
+    val content = new VBox(12, new Label("Quick category management"), categoryList, addRow, removeButton)
+    content.setPadding(new Insets(6, 12, 0, 12))
+    dialog.getDialogPane.setContent(content)
+
+    dialog.showAndWait()
 
   private def buildInput(): Either[String, TransactionInput] =
     val date = Option(datePicker.getValue)

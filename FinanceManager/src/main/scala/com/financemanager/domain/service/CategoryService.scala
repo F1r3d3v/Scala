@@ -12,10 +12,16 @@ final class CategoryService(repository: CategoryRepository):
 
   def getAll: Seq[Category] = repository.findAll()
 
+  def subscribe(listener: () => Unit): Unit =
+    repository.subscribe(listener)
+
   def findByName(name: String): Option[Category] =
     val normalized = name.trim
     if normalized.isEmpty then None
     else repository.findAll().find(_.name.equalsIgnoreCase(normalized))
+
+  def findById(id: CategoryId): Option[Category] =
+    repository.findAll().find(_.id == id)
 
   def add(category: String): Unit =
     val trimmedName = category.trim

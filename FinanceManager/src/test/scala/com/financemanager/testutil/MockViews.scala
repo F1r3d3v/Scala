@@ -1,6 +1,7 @@
 package com.financemanager.testutil
 
 import com.financemanager.domain.model.Category
+import com.financemanager.domain.service.CategoryDeletionPreview
 import com.financemanager.presentation.*
 import com.financemanager.presentation.DisplayModels.*
 import scala.collection.mutable.ListBuffer
@@ -14,10 +15,18 @@ final class MockTransactionsView extends TransactionsViewContract:
   var errors: ListBuffer[String] = ListBuffer.empty
   var formResets: Int = 0
   var populatedForms: ListBuffer[TransactionDisplay] = ListBuffer.empty
+  var displayedCategoriesHistory: ListBuffer[Seq[Category]] = ListBuffer.empty
+  var deletionConfirmations: ListBuffer[CategoryDeletionPreview] = ListBuffer.empty
+  var confirmDeletionResult: Boolean = true
 
   override def displayTransactions(t: Seq[TransactionDisplay]): Unit = displayedTransactions = t
-  override def displayCategories(c: Seq[Category]): Unit = displayedCategories = c
+  override def displayCategories(c: Seq[Category]): Unit =
+    displayedCategories = c
+    displayedCategoriesHistory += c
   override def displayError(m: String): Unit = errors += m
+  override def confirmCategoryDeletion(preview: CategoryDeletionPreview): Boolean =
+    deletionConfirmations += preview
+    confirmDeletionResult
   override def resetForm(): Unit = formResets += 1
   override def populateForm(t: TransactionDisplay): Unit = populatedForms += t
 

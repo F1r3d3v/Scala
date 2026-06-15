@@ -151,6 +151,18 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
     notifyListeners()
     result
 
+  override def reassignCategory(from: CategoryId, to: CategoryId): Unit =
+    Using(dbManager.getConnection) { conn =>
+      Using.resource(conn.prepareStatement("UPDATE transactions SET category_id = ? WHERE category_id = ?")) { stmt =>
+        stmt.setLong(1, to.value)
+        stmt.setLong(2, from.value)
+        stmt.executeUpdate()
+      }
+    } match
+      case scala.util.Success(_) => notifyListeners()
+      case scala.util.Failure(err) =>
+        System.err.println(s"Failed to reassign category $from to $to: ${err.getMessage}")
+
   /**
    * Rewrites an existing targeted transaction given its specific identifier.
    * Emits signal alerting dependents in the case of successful alteration.

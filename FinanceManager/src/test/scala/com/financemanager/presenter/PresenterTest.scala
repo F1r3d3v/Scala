@@ -2,7 +2,7 @@ package com.financemanager.presenter
 
 import com.financemanager.domain.model.{Category, Transaction, TransactionId, TransactionInput, TransactionType, CategoryId}
 import com.financemanager.domain.repository.InMemoryCategoryRepository
-import com.financemanager.domain.service.{AnalyticsService, BudgetService, CategoryService, ImportExportService, TransactionService}
+import com.financemanager.domain.service.{AnalyticsService, BudgetService, CategoryMaintenanceService, CategoryService, ImportExportService, TransactionService}
 import com.financemanager.presentation.DisplayModels.TimeRangeSelection
 import com.financemanager.presentation.presenter.{AnalyticsPresenter, DashboardPresenter, TransactionsPresenter}
 import com.financemanager.testutil.{MockAnalyticsView, MockDashboardView, MockTransactionsView, TestRepository}
@@ -24,10 +24,12 @@ class TransactionsPresenterTest extends FunSuite:
     val view = MockTransactionsView()
     val service = TransactionService(repo)
     val categoryService = new CategoryService(new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Food"), Category(CategoryId(2L), "Transport"))))
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
     val presenter = TransactionsPresenter(
       view,
       service,
       categoryService,
+      categoryMaintenanceService,
       repo,
       new ImportExportService(repo, service, categoryService)
     )
@@ -43,10 +45,12 @@ class TransactionsPresenterTest extends FunSuite:
     val view = MockTransactionsView()
     val service = TransactionService(repo)
     val categoryService = new CategoryService(new InMemoryCategoryRepository())
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
     val presenter = TransactionsPresenter(
       view,
       service,
       categoryService,
+      categoryMaintenanceService,
       repo,
       new ImportExportService(repo, service, categoryService)
     )
@@ -63,10 +67,12 @@ class TransactionsPresenterTest extends FunSuite:
     val view = MockTransactionsView()
     val service = TransactionService(repo)
     val categoryService = new CategoryService(new InMemoryCategoryRepository())
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
     val presenter = TransactionsPresenter(
       view,
       service,
       categoryService,
+      categoryMaintenanceService,
       repo,
       new ImportExportService(repo, service, categoryService)
     )
@@ -84,10 +90,12 @@ class TransactionsPresenterTest extends FunSuite:
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
     val categoryService = new CategoryService(new InMemoryCategoryRepository())
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
     val presenter = TransactionsPresenter(
       view,
       ts,
       categoryService,
+      categoryMaintenanceService,
       repo,
       new ImportExportService(repo, ts, categoryService)
     )
@@ -104,10 +112,12 @@ class TransactionsPresenterTest extends FunSuite:
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
     val categoryService = new CategoryService(new InMemoryCategoryRepository())
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
     val presenter = TransactionsPresenter(
       view,
       ts,
       categoryService,
+      categoryMaintenanceService,
       repo,
       new ImportExportService(repo, ts, categoryService)
     )
@@ -123,10 +133,12 @@ class TransactionsPresenterTest extends FunSuite:
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
     val categoryService = new CategoryService(new InMemoryCategoryRepository())
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
     val presenter = TransactionsPresenter(
       view,
       ts,
       categoryService,
+      categoryMaintenanceService,
       repo,
       new ImportExportService(repo, ts, categoryService)
     )
@@ -141,10 +153,12 @@ class TransactionsPresenterTest extends FunSuite:
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
     val categoryService = new CategoryService(new InMemoryCategoryRepository())
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
     val presenter = TransactionsPresenter(
       view,
       ts,
       categoryService,
+      categoryMaintenanceService,
       repo,
       new ImportExportService(repo, ts, categoryService)
     )
@@ -160,10 +174,12 @@ class TransactionsPresenterTest extends FunSuite:
     val view = MockTransactionsView()
     val ts = TransactionService(repo)
     val categoryService = new CategoryService(new InMemoryCategoryRepository())
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
     val presenter = TransactionsPresenter(
       view,
       ts,
       categoryService,
+      categoryMaintenanceService,
       repo,
       new ImportExportService(repo, ts, categoryService)
     )
@@ -175,6 +191,71 @@ class TransactionsPresenterTest extends FunSuite:
 
     assertEquals(view.formResets, 1, clue = "expected the form to reset after update")
     assertEquals(view.displayedTransactions.head.rawAmount, BigDecimal("75"), clue = "expected the updated amount to be shown")
+
+  test("onAddCategory refreshes displayed categories"):
+    val repo = TestRepository()
+    val view = MockTransactionsView()
+    val transactionService = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Food"))))
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
+    val presenter = TransactionsPresenter(
+      view,
+      transactionService,
+      categoryService,
+      categoryMaintenanceService,
+      repo,
+      new ImportExportService(repo, transactionService, categoryService)
+    )
+    presenter.onViewCreated()
+
+    presenter.onAddCategory("Travel")
+
+    assert(view.displayedCategories.exists(_.name == "Travel"), clue = "expected new category to be displayed")
+    assert(view.displayedCategoriesHistory.size >= 2, clue = "expected categories to refresh after add")
+
+  test("onDeleteCategory removes category from displayed list"):
+    val repo = TestRepository()
+    val view = MockTransactionsView()
+    val transactionService = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository(Seq(Category(CategoryId(1L), "Food"), Category(CategoryId(2L), "Travel"))))
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
+    val presenter = TransactionsPresenter(
+      view,
+      transactionService,
+      categoryService,
+      categoryMaintenanceService,
+      repo,
+      new ImportExportService(repo, transactionService, categoryService)
+    )
+    presenter.onViewCreated()
+
+    presenter.onDeleteCategory(CategoryId(2L))
+
+    assert(!view.displayedCategories.exists(_.name == "Travel"), clue = "expected deleted category to disappear")
+
+  test("deleting category with assigned transactions asks for confirmation and reassigns to Unknown"):
+    val repo = TestRepository(
+      Transaction(TransactionId(1L), now, BigDecimal("50"), CategoryId(2L), "Lunch", TransactionType.Expense)
+    )
+    val view = MockTransactionsView()
+    val transactionService = TransactionService(repo)
+    val categoryService = new CategoryService(new InMemoryCategoryRepository(Seq(Category(CategoryId(2L), "Food"))))
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repo)
+    val presenter = TransactionsPresenter(
+      view,
+      transactionService,
+      categoryService,
+      categoryMaintenanceService,
+      repo,
+      new ImportExportService(repo, transactionService, categoryService)
+    )
+    presenter.onViewCreated()
+
+    presenter.onDeleteCategory(CategoryId(2L))
+
+    assertEquals(view.deletionConfirmations.head.assignedTransactionCount, 1)
+    assertEquals(view.displayedTransactions.head.category, "Unknown")
+    assert(view.displayedCategories.exists(_.name == "Unknown"))
 
 /**
  * Tests for dashboard presenter summary rendering.

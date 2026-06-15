@@ -1,7 +1,7 @@
 package com.financemanager.infrastructure.slick
 
 import com.financemanager.domain.error.DomainError
-import com.financemanager.domain.model.{ImportMode, Transaction, TransactionId, TransactionInput}
+import com.financemanager.domain.model.{CategoryId, ImportMode, Transaction, TransactionId, TransactionInput}
 import com.financemanager.domain.repository.TransactionRepository
 import slick.jdbc.SQLiteProfile.api._
 import scala.concurrent.Await
@@ -49,6 +49,18 @@ class SlickTransactionRepository(dbManager: SlickDatabaseManager) extends Transa
 
     notifyListeners()
     imported
+
+  override def reassignCategory(from: CategoryId, to: CategoryId): Unit =
+    Await.result(
+      db.run(
+        transactions
+          .filter(_.categoryId === from)
+          .map(_.categoryId)
+          .update(to)
+      ),
+      Duration.Inf
+    )
+    notifyListeners()
 
   override def replace(id: TransactionId, input: TransactionInput): Either[DomainError, Transaction] =
     val updateAction = transactions.filter(_.id === id)

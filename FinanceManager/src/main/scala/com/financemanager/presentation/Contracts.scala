@@ -1,6 +1,7 @@
 package com.financemanager.presentation
 
-import com.financemanager.domain.model.{Category, ImportMode, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.model.{Category, CategoryId, ImportMode, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.service.CategoryDeletionPreview
 
 import java.time.LocalDate
 import java.nio.file.Path
@@ -59,6 +60,7 @@ trait TransactionsViewContract:
   def displayTransactions(transactions: Seq[TransactionDisplay]): Unit
   def displayCategories(categories: Seq[Category]): Unit
   def displayError(message: String): Unit
+  def confirmCategoryDeletion(preview: CategoryDeletionPreview): Boolean
   def resetForm(): Unit
   def populateForm(transaction: TransactionDisplay): Unit
 
@@ -84,6 +86,8 @@ trait TransactionsPresenterContract:
   def onDelete(id: TransactionId): Unit
   def onTransactionSelected(id: TransactionId): Unit
   def onClearSelection(): Unit
+  def onAddCategory(name: String): Unit
+  def onDeleteCategory(id: CategoryId): Unit
   def onImport(path: Path, mode: ImportMode): Unit
   def onExport(path: Path): Unit
 

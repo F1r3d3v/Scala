@@ -1,6 +1,6 @@
 package com.financemanager.app
 
-import com.financemanager.domain.service.{AnalyticsService, BudgetService, CategoryService, ImportExportService, TransactionService}
+import com.financemanager.domain.service.{AnalyticsService, BudgetService, CategoryMaintenanceService, CategoryService, ImportExportService, TransactionService}
 import com.financemanager.infrastructure.slick.{SlickDatabaseManager, SlickCategoryRepository, SlickTransactionRepository}
 import com.financemanager.presentation.presenter.{AnalyticsPresenter, DashboardPresenter, TransactionsPresenter}
 import com.financemanager.presentation.view.{AnalyticsView, DashboardView, MainView, TransactionsView}
@@ -27,6 +27,7 @@ final class FinanceManagerApp extends Application:
     val budgetService = new BudgetService(repository)
     val analyticsService = new AnalyticsService(repository, categoryRepository)
     val categoryService = new CategoryService(categoryRepository)
+    val categoryMaintenanceService = new CategoryMaintenanceService(categoryService, repository)
     val importExportService = new ImportExportService(repository, transactionService, categoryService)
 
     val dashboardView = new DashboardView()
@@ -34,7 +35,7 @@ final class FinanceManagerApp extends Application:
     val analyticsView = new AnalyticsView()
 
     val dashboardPresenter = DashboardPresenter(dashboardView, budgetService, repository)
-    val transactionsPresenter = TransactionsPresenter(transactionsView, transactionService, categoryService, repository, importExportService)
+    val transactionsPresenter = TransactionsPresenter(transactionsView, transactionService, categoryService, categoryMaintenanceService, repository, importExportService)
     val analyticsPresenter = AnalyticsPresenter(analyticsView, analyticsService, repository)
 
     transactionsView.presenter = transactionsPresenter
