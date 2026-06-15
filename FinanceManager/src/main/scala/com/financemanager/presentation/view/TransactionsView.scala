@@ -120,8 +120,8 @@ final class TransactionsView extends TransactionsViewContract:
 
   override def displayError(message: String): Unit =
     val alert = new Alert(Alert.AlertType.ERROR)
-    alert.setTitle("Validation error")
-    alert.setHeaderText("Cannot save transaction")
+    alert.setTitle("Operation failed")
+    alert.setHeaderText("The requested action could not be completed")
     alert.setContentText(message)
     alert.showAndWait()
 

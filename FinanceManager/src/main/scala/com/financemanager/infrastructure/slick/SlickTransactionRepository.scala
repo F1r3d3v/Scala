@@ -18,6 +18,9 @@ class SlickTransactionRepository(dbManager: SlickDatabaseManager) extends Transa
   override def findById(id: TransactionId): Option[Transaction] =
     Await.result(db.run(transactions.filter(_.id === id).result.headOption), Duration.Inf)
 
+  override def countByCategory(categoryId: CategoryId): Int =
+    Await.result(db.run(transactions.filter(_.categoryId === categoryId).length.result), Duration.Inf)
+
   override def add(input: TransactionInput): Transaction =
     val insertQuery = (transactions.map(t => (t.date, t.amount, t.categoryId, t.description, t.transactionType))
       returning transactions.map(_.id)

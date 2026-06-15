@@ -16,6 +16,9 @@ object TestRepository:
 
     override def findById(id: TransactionId): Option[Transaction] = transactions.find(_.id == id)
 
+    override def countByCategory(categoryId: CategoryId): Int =
+      transactions.count(_.category == categoryId)
+
     override def add(input: TransactionInput): Transaction =
       val t = Transaction(TransactionId(nextId), input.date, input.amount, input.category, input.description, input.transactionType)
       nextId += 1

@@ -71,6 +71,19 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
         System.err.println(s"Failed to load transaction ${id.value}: ${err.getMessage}")
         None
 
+  override def countByCategory(categoryId: CategoryId): Int =
+    Using(dbManager.getConnection) { conn =>
+      Using.resource(conn.prepareStatement("SELECT COUNT(*) FROM transactions WHERE category_id = ?")) { stmt =>
+        stmt.setLong(1, categoryId.value)
+        val rs = stmt.executeQuery()
+        if rs.next() then rs.getInt(1) else 0
+      }
+    } match
+      case scala.util.Success(count) => count
+      case scala.util.Failure(err) =>
+        System.err.println(s"Failed to count transactions for category ${categoryId.value}: ${err.getMessage}")
+        0
+
   /**
    * Translates incoming domain data object into a new persisted record.
    * Dispatches notifications to subscribers upon structural database update.
@@ -114,28 +127,28 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
         val insertSql =
           "INSERT INTO transactions (date, amount, category_id, description, transaction_type) VALUES (?, ?, ?, ?, ?)"
 
-        val imported = inputs.map { input =>
-          Using.resource(conn.prepareStatement(insertSql)) { stmt =>
-            stmt.setString(1, input.date.toString)
-            stmt.setString(2, input.amount.toString)
-            stmt.setLong(3, input.category.value)
-            stmt.setString(4, input.description)
-            stmt.setString(5, input.transactionType.toString)
-            stmt.executeUpdate()
-          }
+        val imported = Using.resource(conn.prepareStatement(insertSql)) { insertStmt =>
+          Using.resource(conn.createStatement()) { idStmt =>
+            inputs.map { input =>
+              insertStmt.setString(1, input.date.toString)
+              insertStmt.setString(2, input.amount.toString)
+              insertStmt.setLong(3, input.category.value)
+              insertStmt.setString(4, input.description)
+              insertStmt.setString(5, input.transactionType.toString)
+              insertStmt.executeUpdate()
 
-          Using.resource(conn.createStatement()) { stmt =>
-            val rs = stmt.executeQuery("SELECT last_insert_rowid()")
-            if rs.next() then
-              Transaction(
-                TransactionId(rs.getLong(1)),
-                input.date,
-                input.amount,
-                input.category,
-                input.description,
-                input.transactionType
-              )
-            else throw new IllegalStateException("Failed to insert transaction")
+              val rs = idStmt.executeQuery("SELECT last_insert_rowid()")
+              if rs.next() then
+                Transaction(
+                  TransactionId(rs.getLong(1)),
+                  input.date,
+                  input.amount,
+                  input.category,
+                  input.description,
+                  input.transactionType
+                )
+              else throw new IllegalStateException("Failed to insert transaction")
+            }
           }
         }
 

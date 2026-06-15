@@ -9,6 +9,7 @@ import com.financemanager.domain.model.{CategoryId, ImportMode, Transaction, Tra
 trait TransactionRepository extends Subscribable:
   def findAll(): Seq[Transaction]
   def findById(id: TransactionId): Option[Transaction]
+  def countByCategory(categoryId: CategoryId): Int
   def add(input: TransactionInput): Transaction
   def importBatch(inputs: Seq[TransactionInput], mode: ImportMode): Seq[Transaction]
   /**

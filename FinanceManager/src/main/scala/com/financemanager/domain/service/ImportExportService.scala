@@ -28,37 +28,42 @@ final class ImportExportService(
   private def buildImportedTransactions(
     rows: Seq[TransactionCsvRow]
   ): Either[IOError, Seq[TransactionInput]] =
-    rows.foldLeft[Either[IOError, Seq[TransactionInput]]](Right(Seq.empty)) { (acc, row) =>
-      acc.flatMap { validInputs =>
-        val normalizedCategory = row.category.trim
-        if normalizedCategory.isEmpty then Left(IOError.ReadError("", "Category is required"))
-        else
-          val category = categoryService.getOrCreate(normalizedCategory)
-          val input = TransactionInput(row.date, row.amount, category.id, row.description, row.transactionType)
-          transactionService
-            .validate(input)
-            .left
-            .map(error => IOError.ReadError("", error.toString))
-            .map(_ => validInputs :+ input)
+    rows
+      .foldLeft[Either[IOError, List[TransactionInput]]](Right(Nil)) { (acc, row) =>
+        acc.flatMap { validInputs =>
+          val normalizedCategory = row.category.trim
+          if normalizedCategory.isEmpty then Left(IOError.ReadError("", "Category is required"))
+          else
+            val category = categoryService.getOrCreate(normalizedCategory)
+            val input = TransactionInput(row.date, row.amount, category.id, row.description, row.transactionType)
+            transactionService
+              .validate(input)
+              .left
+              .map(error => IOError.ReadError("", error.toString))
+              .map(_ => input :: validInputs)
+        }
       }
-    }
+      .map(_.reverse)
 
   private def buildExportRows: Either[IOError, Seq[TransactionCsvRow]] =
     val categoriesById = categoryService.getAll.map(category => category.id -> category.name).toMap
 
-    transactionRepository.findAll().foldLeft[Either[IOError, Seq[TransactionCsvRow]]](Right(Seq.empty)) { (acc, transaction) =>
-      acc.flatMap { rows =>
-        categoriesById
-          .get(transaction.category)
-          .toRight(IOError.WriteError("", s"Category ${transaction.category.value} not found"))
-          .map { categoryName =>
-            rows :+ TransactionCsvRow(
-              transaction.date,
-              transaction.amount,
-              categoryName,
-              transaction.description,
-              transaction.transactionType
-            )
-          }
+    transactionRepository
+      .findAll()
+      .foldLeft[Either[IOError, List[TransactionCsvRow]]](Right(Nil)) { (acc, transaction) =>
+        acc.flatMap { rows =>
+          categoriesById
+            .get(transaction.category)
+            .toRight(IOError.WriteError("", s"Category ${transaction.category.value} not found"))
+            .map { categoryName =>
+              TransactionCsvRow(
+                transaction.date,
+                transaction.amount,
+                categoryName,
+                transaction.description,
+                transaction.transactionType
+              ) :: rows
+            }
+        }
       }
-    }
+      .map(_.reverse)

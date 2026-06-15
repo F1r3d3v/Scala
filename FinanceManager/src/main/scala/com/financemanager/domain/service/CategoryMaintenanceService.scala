@@ -35,7 +35,7 @@ final class CategoryMaintenanceService(
     categoryService.findById(id).map { category =>
       CategoryDeletionPreview(
         category = category,
-        assignedTransactionCount = transactionRepository.findAll().count(_.category == id),
+        assignedTransactionCount = transactionRepository.countByCategory(id),
         replacementCategoryName = UnknownCategoryName
       )
     }
