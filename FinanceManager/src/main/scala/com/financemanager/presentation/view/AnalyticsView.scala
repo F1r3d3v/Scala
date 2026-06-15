@@ -5,7 +5,13 @@ import com.financemanager.presentation.DisplayModels.*
 import javafx.collections.FXCollections
 import javafx.geometry.Insets
 import javafx.scene.Node
-import javafx.scene.chart.{BarChart, CategoryAxis, NumberAxis, PieChart, XYChart}
+import javafx.scene.chart.{
+  BarChart,
+  CategoryAxis,
+  NumberAxis,
+  PieChart,
+  XYChart
+}
 import javafx.scene.control.{ComboBox, DatePicker, Label}
 import javafx.scene.layout.{HBox, Priority, VBox}
 
@@ -13,9 +19,8 @@ import java.time.LocalDate
 
 import scala.compiletime.uninitialized
 
-/**
- * View for the analytics tab, rendering category breakdown and trend charts.
- */
+/** View for the analytics tab, rendering category breakdown and trend charts.
+  */
 final class AnalyticsView extends AnalyticsViewContract:
   /** Presenter assigned by the application during wiring. */
   var presenter: AnalyticsPresenterContract = uninitialized
@@ -35,11 +40,18 @@ final class AnalyticsView extends AnalyticsViewContract:
 
   private val startDatePicker = new DatePicker(LocalDate.now().minusMonths(1))
   private val endDatePicker = new DatePicker(LocalDate.now())
-  private val customDateBox = new HBox(10, new Label("From:"), startDatePicker, new Label("To:"), endDatePicker)
+  private val customDateBox = new HBox(
+    10,
+    new Label("From:"),
+    startDatePicker,
+    new Label("To:"),
+    endDatePicker
+  )
   customDateBox.setVisible(false)
   customDateBox.setManaged(false)
 
-  private val categoryPieData = FXCollections.observableArrayList[PieChart.Data]()
+  private val categoryPieData =
+    FXCollections.observableArrayList[PieChart.Data]()
   private val trendSeries = new XYChart.Series[String, Number]()
 
   private val pieChart = new PieChart(categoryPieData)
@@ -64,7 +76,8 @@ final class AnalyticsView extends AnalyticsViewContract:
     val title = new Label("Analytics")
     title.setStyle("-fx-font-size: 24; -fx-font-weight: bold;")
 
-    val controls = new HBox(15, new Label("Range:"), rangeSelector, customDateBox)
+    val controls =
+      new HBox(15, new Label("Range:"), rangeSelector, customDateBox)
     controls.setAlignment(javafx.geometry.Pos.CENTER_LEFT)
 
     val charts = new HBox(16, pieChart, barChart)
@@ -102,5 +115,9 @@ final class AnalyticsView extends AnalyticsViewContract:
       case DisplayRange.Last3Months  => TimeRangeSelection.Last3Months
       case DisplayRange.Last6Months  => TimeRangeSelection.Last6Months
       case DisplayRange.Last12Months => TimeRangeSelection.Last12Months
-      case DisplayRange.Custom       => TimeRangeSelection.Custom(startDatePicker.getValue, endDatePicker.getValue)
+      case DisplayRange.Custom       =>
+        TimeRangeSelection.Custom(
+          startDatePicker.getValue,
+          endDatePicker.getValue
+        )
     presenter.onRangeChanged(selection)

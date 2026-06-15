@@ -7,13 +7,15 @@ import com.financemanager.presentation.DisplayModels.*
 
 import java.time.LocalDate
 
-/**
- * Presenter that prepares analytics data for charts.
- *
- * @param view analytics UI contract
- * @param analyticsService domain service for analytics aggregation
- * @param repository repository to observe for updates
- */
+/** Presenter that prepares analytics data for charts.
+  *
+  * @param view
+  *   analytics UI contract
+  * @param analyticsService
+  *   domain service for analytics aggregation
+  * @param repository
+  *   repository to observe for updates
+  */
 final class AnalyticsPresenter(
     view: AnalyticsViewContract,
     analyticsService: AnalyticsService,
@@ -32,7 +34,8 @@ final class AnalyticsPresenter(
 
   private def refresh(): Unit =
     val (start, end) = dateRange
-    val categoryData = analyticsService.spendingByCategory(start, end)
+    val categoryData = analyticsService
+      .spendingByCategory(start, end)
       .map((cat, amount) => cat -> amount.toDouble)
     view.displayCategoryBreakdown(categoryData)
 

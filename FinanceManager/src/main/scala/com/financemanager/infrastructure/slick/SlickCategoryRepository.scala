@@ -6,7 +6,8 @@ import slick.jdbc.SQLiteProfile.api._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class SlickCategoryRepository(dbManager: SlickDatabaseManager) extends CategoryRepository:
+class SlickCategoryRepository(dbManager: SlickDatabaseManager)
+    extends CategoryRepository:
   import SlickTables._
 
   private val db = dbManager.db
@@ -29,12 +30,17 @@ class SlickCategoryRepository(dbManager: SlickDatabaseManager) extends CategoryR
   override def add(categoryName: String): Category =
     val insertQuery = (categories.map(_.name) returning categories.map(_.id)
       into ((name, id) => Category(id, name)))
-    
-    val existingIdOpt = Await.result(db.run(categories.filter(_.name === categoryName).map(_.id).result.headOption), Duration.Inf)
+
+    val existingIdOpt = Await.result(
+      db.run(
+        categories.filter(_.name === categoryName).map(_.id).result.headOption
+      ),
+      Duration.Inf
+    )
 
     val newCategory = existingIdOpt match
       case Some(id) => Category(id, categoryName)
-      case None =>
+      case None     =>
         Await.result(db.run(insertQuery += categoryName), Duration.Inf)
 
     refreshCache()

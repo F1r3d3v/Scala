@@ -20,8 +20,14 @@ object AppConfig:
     Paths.get(System.getProperty("user.home"), DbDirectoryName, DbFileName)
 
   val InitialCategories: Seq[String] = Seq(
-    "Groceries", "Transport", "Utilities", "Dining",
-    "Subscriptions", "Health", "Other", "Salary",
-    "Freelance", "Investments"
+    "Groceries",
+    "Transport",
+    "Utilities",
+    "Dining",
+    "Subscriptions",
+    "Health",
+    "Other",
+    "Salary",
+    "Freelance",
+    "Investments"
   )
-

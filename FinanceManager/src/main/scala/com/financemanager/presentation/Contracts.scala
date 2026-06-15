@@ -1,19 +1,24 @@
 package com.financemanager.presentation
 
-import com.financemanager.domain.model.{Category, CategoryId, ImportMode, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.model.{
+  Category,
+  CategoryId,
+  ImportMode,
+  TransactionId,
+  TransactionInput,
+  TransactionType
+}
 import com.financemanager.domain.service.CategoryDeletionPreview
 
 import java.time.LocalDate
 import java.nio.file.Path
 
-/**
- * UI-specific models used to decouple presenters from views.
- */
+/** UI-specific models used to decouple presenters from views.
+  */
 object DisplayModels:
 
-  /**
-   * Display-ready transaction row.
-   */
+  /** Display-ready transaction row.
+    */
   final case class TransactionDisplay(
       id: TransactionId,
       date: String,
@@ -24,9 +29,8 @@ object DisplayModels:
       transactionType: TransactionType
   )
 
-  /**
-   * Display-ready dashboard summary.
-   */
+  /** Display-ready dashboard summary.
+    */
   final case class DashboardDisplay(
       totalSpent: String,
       totalIncome: String,
@@ -34,28 +38,30 @@ object DisplayModels:
       transactionCount: Int
   )
 
-  /**
-   * Chart-ready spend trend data.
-   *
-   * @param points ordered list of (label, value) pairs
-   * @param periodLabel label for the time bucket
-   */
-  final case class TrendData(points: Seq[(String, Double)], periodLabel: String):
+  /** Chart-ready spend trend data.
+    *
+    * @param points
+    *   ordered list of (label, value) pairs
+    * @param periodLabel
+    *   label for the time bucket
+    */
+  final case class TrendData(
+      points: Seq[(String, Double)],
+      periodLabel: String
+  ):
     def chartTitle: String = s"Spend Trend ($periodLabel)"
     def seriesName: String = s"$periodLabel Spend"
 
-  /**
-   * Predefined time-range options for analytics.
-   */
+  /** Predefined time-range options for analytics.
+    */
   enum TimeRangeSelection:
     case Last3Months, Last6Months, Last12Months
     case Custom(start: LocalDate, end: LocalDate)
 
 import com.financemanager.presentation.DisplayModels.*
 
-/**
- * Contract implemented by the transactions view.
- */
+/** Contract implemented by the transactions view.
+  */
 trait TransactionsViewContract:
   def displayTransactions(transactions: Seq[TransactionDisplay]): Unit
   def displayCategories(categories: Seq[Category]): Unit
@@ -64,22 +70,19 @@ trait TransactionsViewContract:
   def resetForm(): Unit
   def populateForm(transaction: TransactionDisplay): Unit
 
-/**
- * Contract implemented by the dashboard view.
- */
+/** Contract implemented by the dashboard view.
+  */
 trait DashboardViewContract:
   def displaySummary(summary: DashboardDisplay): Unit
 
-/**
- * Contract implemented by the analytics view.
- */
+/** Contract implemented by the analytics view.
+  */
 trait AnalyticsViewContract:
   def displayCategoryBreakdown(data: Seq[(String, Double)]): Unit
   def displaySpendingTrend(data: TrendData): Unit
 
-/**
- * Presenter actions initiated by the transactions view.
- */
+/** Presenter actions initiated by the transactions view.
+  */
 trait TransactionsPresenterContract:
   def onViewCreated(): Unit
   def onSubmit(input: TransactionInput): Unit
@@ -91,15 +94,13 @@ trait TransactionsPresenterContract:
   def onImport(path: Path, mode: ImportMode): Unit
   def onExport(path: Path): Unit
 
-/**
- * Presenter actions initiated by the dashboard view.
- */
+/** Presenter actions initiated by the dashboard view.
+  */
 trait DashboardPresenterContract:
   def onViewCreated(): Unit
 
-/**
- * Presenter actions initiated by the analytics view.
- */
+/** Presenter actions initiated by the analytics view.
+  */
 trait AnalyticsPresenterContract:
   def onViewCreated(): Unit
   def onRangeChanged(range: TimeRangeSelection): Unit
