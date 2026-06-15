@@ -125,6 +125,9 @@ final class TransactionsView extends TransactionsViewContract:
     alert.setContentText(message)
     alert.showAndWait()
 
+  /**
+   * Shows a confirmation dialog before deleting a category that may affect transactions.
+   */
   override def confirmCategoryDeletion(preview: CategoryDeletionPreview): Boolean =
     val dialog = new Dialog[Boolean]()
     dialog.setTitle("Delete category")
@@ -224,6 +227,9 @@ final class TransactionsView extends TransactionsViewContract:
     val file = if isImport then chooser.showOpenDialog(window) else chooser.showSaveDialog(window)
     Option(file).map(_.toPath)
 
+  /**
+   * Presents import behavior options using a compact radio-button dialog.
+   */
   private def chooseImportMode(): Option[ImportMode] =
     val dialog = new Dialog[ImportMode]()
     dialog.setTitle("Import transactions")
@@ -258,6 +264,9 @@ final class TransactionsView extends TransactionsViewContract:
 
     Option(dialog.showAndWait().orElse(null))
 
+  /**
+   * Opens a compact dialog for quick category creation and removal.
+   */
   private def showCategoryManager(): Unit =
     val dialog = new Dialog[Unit]()
     dialog.setTitle("Categories")

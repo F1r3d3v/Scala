@@ -11,6 +11,9 @@ trait TransactionRepository extends Subscribable:
   def findById(id: TransactionId): Option[Transaction]
   def add(input: TransactionInput): Transaction
   def importBatch(inputs: Seq[TransactionInput], mode: ImportMode): Seq[Transaction]
+  /**
+   * Reassigns every transaction from one category to another.
+   */
   def reassignCategory(from: CategoryId, to: CategoryId): Unit
   def replace(id: TransactionId, input: TransactionInput): Either[DomainError, Transaction]
   def remove(id: TransactionId): Either[DomainError, Unit]

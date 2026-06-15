@@ -17,6 +17,7 @@ import java.nio.file.Path
  * @param view transactions UI contract
  * @param transactionService domain service for validation/persistence
  * @param categoryService domain service for category lookup
+ * @param categoryMaintenanceService domain service for safe category deletion
  * @param repository repository to observe for updates
  * @param importExportService service for importing/exporting transactions
  */
@@ -99,9 +100,15 @@ final class TransactionsPresenter(
       case Left(err) => view.displayError(err.message)
       case Right(_) => ()
 
+  /**
+   * Refreshes category choices shown by the view.
+   */
   private def refreshCategories(): Unit =
     view.displayCategories(categoryService.getAll)
 
+  /**
+   * Refreshes the transaction table using current category labels.
+   */
   private def refreshTransactions(): Unit =
     categoryCache = categoryService.getAll.map(c => c.id -> c.name).toMap
     val displays = repository.findAll().map(buildTransactionDisplay)
