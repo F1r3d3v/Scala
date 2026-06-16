@@ -2,20 +2,17 @@ package com.financemanager.domain.model
 
 import java.time.{LocalDate, YearMonth}
 
-/**
- * Extension helpers used throughout the domain and presentation layers.
- */
+/** Extension helpers used throughout the domain and presentation layers.
+  */
 object Extensions:
 
   extension (bd: BigDecimal)
-    /**
-     * Formats a currency value with two decimal places.
-     */
+    /** Formats a currency value with two decimal places.
+      */
     def moneyFormat: String = if (bd >= 0) f"$$$bd%.2f" else f"-$$${bd.abs}%.2f"
 
-  /**
-   * Collection helpers for filtering and aggregating transactions.
-   */
+  /** Collection helpers for filtering and aggregating transactions.
+    */
   extension (transactions: Seq[Transaction])
     def filterByMonth(ym: YearMonth): Seq[Transaction] =
       transactions.filter(t => YearMonth.from(t.date) == ym)

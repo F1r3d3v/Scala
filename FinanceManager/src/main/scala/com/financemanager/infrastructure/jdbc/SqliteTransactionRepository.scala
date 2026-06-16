@@ -1,29 +1,41 @@
 package com.financemanager.infrastructure.jdbc
 
 import com.financemanager.domain.error.DomainError
-import com.financemanager.domain.model.{CategoryId, Transaction, TransactionId, TransactionInput, TransactionType}
+import com.financemanager.domain.model.{
+  CategoryId,
+  ImportMode,
+  Transaction,
+  TransactionId,
+  TransactionInput,
+  TransactionType
+}
 import com.financemanager.domain.repository.TransactionRepository
 import java.time.LocalDate
 import scala.util.Using
 
-/**
- * SQLite-backed implementation of the TransactionRepository.
- *
- * Defines standard operations on budget records persisting
- * to an underlying JDBC SQLite database.
- *
- * @param dbManager database connection provider
- */
-class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends TransactionRepository:
+/** SQLite-backed implementation of the TransactionRepository.
+  *
+  * Defines standard operations on budget records persisting to an underlying
+  * JDBC SQLite database.
+  *
+  * @param dbManager
+  *   database connection provider
+  */
+class SqliteTransactionRepository(dbManager: JdbcDatabaseManager)
+    extends TransactionRepository:
 
-  /**
-   * Retrieves all historical transaction records stored in the database.
-   *
-   * @return sequence containing parsed and available transactions
-   */
+  /** Retrieves all historical transaction records stored in the database.
+    *
+    * @return
+    *   sequence containing parsed and available transactions
+    */
   override def findAll(): Seq[Transaction] =
     Using(dbManager.getConnection) { conn =>
-      Using.resource(conn.prepareStatement("SELECT id, date, CAST(amount AS TEXT) as amount, category_id, description, transaction_type FROM transactions")) { stmt =>
+      Using.resource(
+        conn.prepareStatement(
+          "SELECT id, date, CAST(amount AS TEXT) as amount, category_id, description, transaction_type FROM transactions"
+        )
+      ) { stmt =>
         val rs = stmt.executeQuery()
         val b = collection.mutable.ListBuffer[Transaction]()
         while rs.next() do
@@ -33,7 +45,8 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
             amount = BigDecimal(rs.getString("amount")),
             category = CategoryId(rs.getLong("category_id")),
             description = rs.getString("description"),
-            transactionType = TransactionType.valueOf(rs.getString("transaction_type"))
+            transactionType =
+              TransactionType.valueOf(rs.getString("transaction_type"))
           )
         b.toSeq
       }
@@ -43,46 +56,78 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
         System.err.println(s"Failed to load transactions: ${err.getMessage}")
         Seq.empty
 
-  /**
-   * Attempts resolving solitary transaction from the database by identifier.
-   *
-   * @param id wrapper for unique transaction reference
-   * @return option with Transaction match when successful
-   */
+  /** Attempts resolving solitary transaction from the database by identifier.
+    *
+    * @param id
+    *   wrapper for unique transaction reference
+    * @return
+    *   option with Transaction match when successful
+    */
   override def findById(id: TransactionId): Option[Transaction] =
     Using(dbManager.getConnection) { conn =>
-      Using.resource(conn.prepareStatement("SELECT id, date, CAST(amount AS TEXT) as amount, category_id, description, transaction_type FROM transactions WHERE id = ?")) { stmt =>
+      Using.resource(
+        conn.prepareStatement(
+          "SELECT id, date, CAST(amount AS TEXT) as amount, category_id, description, transaction_type FROM transactions WHERE id = ?"
+        )
+      ) { stmt =>
         stmt.setLong(1, id.value)
         val rs = stmt.executeQuery()
         if rs.next() then
-          Some(Transaction(
-            id = TransactionId(rs.getLong("id")),
-            date = LocalDate.parse(rs.getString("date")),
-            amount = BigDecimal(rs.getString("amount")),
-            category = CategoryId(rs.getLong("category_id")),
-            description = rs.getString("description"),
-            transactionType = TransactionType.valueOf(rs.getString("transaction_type"))
-          ))
+          Some(
+            Transaction(
+              id = TransactionId(rs.getLong("id")),
+              date = LocalDate.parse(rs.getString("date")),
+              amount = BigDecimal(rs.getString("amount")),
+              category = CategoryId(rs.getLong("category_id")),
+              description = rs.getString("description"),
+              transactionType =
+                TransactionType.valueOf(rs.getString("transaction_type"))
+            )
+          )
         else None
       }
     } match
       case scala.util.Success(opt) => opt
       case scala.util.Failure(err) =>
-        System.err.println(s"Failed to load transaction ${id.value}: ${err.getMessage}")
+        System.err.println(
+          s"Failed to load transaction ${id.value}: ${err.getMessage}"
+        )
         None
 
-  /**
-   * Translates incoming domain data object into a new persisted record.
-   * Dispatches notifications to subscribers upon structural database update.
-   *
-   * @param input newly registered payload for an expense or income
-   * @return established and fully identified transaction record
-   */
+  override def countByCategory(categoryId: CategoryId): Int =
+    Using(dbManager.getConnection) { conn =>
+      Using.resource(
+        conn.prepareStatement(
+          "SELECT COUNT(*) FROM transactions WHERE category_id = ?"
+        )
+      ) { stmt =>
+        stmt.setLong(1, categoryId.value)
+        val rs = stmt.executeQuery()
+        if rs.next() then rs.getInt(1) else 0
+      }
+    } match
+      case scala.util.Success(count) => count
+      case scala.util.Failure(err)   =>
+        System.err.println(
+          s"Failed to count transactions for category ${categoryId.value}: ${err.getMessage}"
+        )
+        0
+
+  /** Translates incoming domain data object into a new persisted record.
+    * Dispatches notifications to subscribers upon structural database update.
+    *
+    * @param input
+    *   newly registered payload for an expense or income
+    * @return
+    *   established and fully identified transaction record
+    */
   override def add(input: TransactionInput): Transaction =
     val result = Using(dbManager.getConnection) { conn =>
-      Using.resource(conn.prepareStatement(
-        "INSERT INTO transactions (date, amount, category_id, description, transaction_type) VALUES (?, ?, ?, ?, ?)"
-      )) { stmt =>
+      Using.resource(
+        conn.prepareStatement(
+          "INSERT INTO transactions (date, amount, category_id, description, transaction_type) VALUES (?, ?, ?, ?, ?)"
+        )
+      ) { stmt =>
         stmt.setString(1, input.date.toString)
         stmt.setString(2, input.amount.toString)
         stmt.setLong(3, input.category.value)
@@ -95,29 +140,120 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
         val rs = stmt.executeQuery("SELECT last_insert_rowid()")
         if rs.next() then
           val id = rs.getLong(1)
-          Transaction(TransactionId(id), input.date, input.amount, input.category, input.description, input.transactionType)
+          Transaction(
+            TransactionId(id),
+            input.date,
+            input.amount,
+            input.category,
+            input.description,
+            input.transactionType
+          )
         else throw new IllegalStateException("Failed to insert transaction")
       }
     }.get
     notifyListeners()
     result
 
-  /**
-   * Rewrites an existing targeted transaction given its specific identifier.
-   * Emits signal alerting dependents in the case of successful alteration.
-   *
-   * @param id domain ID targeting the modified data element
-   * @param input revised transactional data mapping
-   * @return a domain entity on success or matching error type if ID cannot be correlated
-   */
-  override def replace(id: TransactionId, input: TransactionInput): Either[DomainError, Transaction] =
+  override def importBatch(
+      inputs: Seq[TransactionInput],
+      mode: ImportMode
+  ): Seq[Transaction] =
+    val result = Using(dbManager.getConnection) { conn =>
+      val previousAutoCommit = conn.getAutoCommit
+      conn.setAutoCommit(false)
+
+      try
+        if mode == ImportMode.Overwrite then
+          Using.resource(conn.prepareStatement("DELETE FROM transactions"))(
+            _.executeUpdate()
+          )
+
+        val insertSql =
+          "INSERT INTO transactions (date, amount, category_id, description, transaction_type) VALUES (?, ?, ?, ?, ?)"
+
+        val imported = Using.resource(conn.prepareStatement(insertSql)) {
+          insertStmt =>
+            Using.resource(conn.createStatement()) { idStmt =>
+              inputs.map { input =>
+                insertStmt.setString(1, input.date.toString)
+                insertStmt.setString(2, input.amount.toString)
+                insertStmt.setLong(3, input.category.value)
+                insertStmt.setString(4, input.description)
+                insertStmt.setString(5, input.transactionType.toString)
+                insertStmt.executeUpdate()
+
+                val rs = idStmt.executeQuery("SELECT last_insert_rowid()")
+                if rs.next() then
+                  Transaction(
+                    TransactionId(rs.getLong(1)),
+                    input.date,
+                    input.amount,
+                    input.category,
+                    input.description,
+                    input.transactionType
+                  )
+                else
+                  throw new IllegalStateException(
+                    "Failed to insert transaction"
+                  )
+              }
+            }
+        }
+
+        conn.commit()
+        imported
+      catch
+        case err: Exception =>
+          conn.rollback()
+          throw err
+      finally conn.setAutoCommit(previousAutoCommit)
+    }.get
+
+    notifyListeners()
+    result
+
+  override def reassignCategory(from: CategoryId, to: CategoryId): Unit =
+    Using(dbManager.getConnection) { conn =>
+      Using.resource(
+        conn.prepareStatement(
+          "UPDATE transactions SET category_id = ? WHERE category_id = ?"
+        )
+      ) { stmt =>
+        stmt.setLong(1, to.value)
+        stmt.setLong(2, from.value)
+        stmt.executeUpdate()
+      }
+    } match
+      case scala.util.Success(_)   => notifyListeners()
+      case scala.util.Failure(err) =>
+        System.err.println(
+          s"Failed to reassign category $from to $to: ${err.getMessage}"
+        )
+
+  /** Rewrites an existing targeted transaction given its specific identifier.
+    * Emits signal alerting dependents in the case of successful alteration.
+    *
+    * @param id
+    *   domain ID targeting the modified data element
+    * @param input
+    *   revised transactional data mapping
+    * @return
+    *   a domain entity on success or matching error type if ID cannot be
+    *   correlated
+    */
+  override def replace(
+      id: TransactionId,
+      input: TransactionInput
+  ): Either[DomainError, Transaction] =
     findById(id) match
-      case None => Left(DomainError.NotFound(id))
+      case None    => Left(DomainError.NotFound(id))
       case Some(_) =>
         val result = Using(dbManager.getConnection) { conn =>
-          Using.resource(conn.prepareStatement(
-            "UPDATE transactions SET date = ?, amount = ?, category_id = ?, description = ?, transaction_type = ? WHERE id = ?"
-          )) { stmt =>
+          Using.resource(
+            conn.prepareStatement(
+              "UPDATE transactions SET date = ?, amount = ?, category_id = ?, description = ?, transaction_type = ? WHERE id = ?"
+            )
+          ) { stmt =>
             stmt.setString(1, input.date.toString)
             stmt.setString(2, input.amount.toString)
             stmt.setLong(3, input.category.value)
@@ -127,28 +263,42 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
 
             val updatedRows = stmt.executeUpdate()
             if updatedRows == 0 then Left(DomainError.NotFound(id))
-            else Right(Transaction(id, input.date, input.amount, input.category, input.description, input.transactionType))
+            else
+              Right(
+                Transaction(
+                  id,
+                  input.date,
+                  input.amount,
+                  input.category,
+                  input.description,
+                  input.transactionType
+                )
+              )
           }
-        }.toEither
-          .left.map(e => DomainError.SystemError(e.getMessage))
+        }.toEither.left
+          .map(e => DomainError.SystemError(e.getMessage))
           .flatMap(identity)
 
         result.foreach(_ => notifyListeners())
         result
 
-  /**
-   * Purges designated transactional record from underlying permanent storage.
-   * Publishes notification allowing synchronous GUI refreshing after elimination.
-   *
-   * @param id logical index linked to item selected for deletion
-   * @return successful completion Unit, or NotFound failure
-   */
+  /** Purges designated transactional record from underlying permanent storage.
+    * Publishes notification allowing synchronous GUI refreshing after
+    * elimination.
+    *
+    * @param id
+    *   logical index linked to item selected for deletion
+    * @return
+    *   successful completion Unit, or NotFound failure
+    */
   override def remove(id: TransactionId): Either[DomainError, Unit] =
     findById(id) match
-      case None => Left(DomainError.NotFound(id))
+      case None    => Left(DomainError.NotFound(id))
       case Some(_) =>
         val result = Using(dbManager.getConnection) { conn =>
-          Using.resource(conn.prepareStatement("DELETE FROM transactions WHERE id = ?")) { stmt =>
+          Using.resource(
+            conn.prepareStatement("DELETE FROM transactions WHERE id = ?")
+          ) { stmt =>
             stmt.setLong(1, id.value)
             stmt.executeUpdate()
             ()
@@ -158,16 +308,16 @@ class SqliteTransactionRepository(dbManager: JdbcDatabaseManager) extends Transa
         result.foreach(_ => notifyListeners())
         result
 
-  /**
-   * Executes complete clearance of all transaction records from the database.
-   * Notifies dependents to trigger necessary UI updates after the purge.
-   */
+  /** Executes complete clearance of all transaction records from the database.
+    * Notifies dependents to trigger necessary UI updates after the purge.
+    */
   override def removeAll(): Unit =
     Using(dbManager.getConnection) { conn =>
-      Using.resource(conn.prepareStatement("DELETE FROM transactions")) { stmt =>
-        stmt.executeUpdate()
+      Using.resource(conn.prepareStatement("DELETE FROM transactions")) {
+        stmt =>
+          stmt.executeUpdate()
       }
     } match
-      case scala.util.Success(_) => notifyListeners()
+      case scala.util.Success(_)   => notifyListeners()
       case scala.util.Failure(err) =>
         System.err.println(s"Failed to clear transactions: ${err.getMessage}")

@@ -1,6 +1,6 @@
 package com.financemanager.IO.csv
 
-import com.financemanager.domain.model.{CategoryId, TransactionInput, TransactionType}
+import com.financemanager.domain.model.TransactionType
 import kantan.csv.*
 import kantan.csv.java8.*
 
@@ -13,19 +13,38 @@ object TransactionCsvCodec:
       s.trim.toLowerCase match
         case "income"  => Right(TransactionType.Income)
         case "expense" => Right(TransactionType.Expense)
-        case other     => Left(DecodeError.TypeError(s"Not a valid TransactionType: '$other'"))
+        case other     =>
+          Left(DecodeError.TypeError(s"Not a valid TransactionType: '$other'"))
     )
 
   given CellEncoder[TransactionType] =
     CellEncoder.from(t => t.toString)
 
-  given HeaderDecoder[TransactionInput] =
-    HeaderDecoder.decoder("date", "amount", "categoryId", "description", "transactionType")(
-      (date: LocalDate, amount: BigDecimal, categoryId: Long, description: String, transactionType: TransactionType) =>
-        TransactionInput(date, amount, CategoryId(categoryId), description, transactionType)
+  given HeaderDecoder[TransactionCsvRow] =
+    HeaderDecoder.decoder(
+      "date",
+      "amount",
+      "category",
+      "description",
+      "transactionType"
+    )(
+      (
+          date: LocalDate,
+          amount: BigDecimal,
+          category: String,
+          description: String,
+          transactionType: TransactionType
+      ) =>
+        TransactionCsvRow(date, amount, category, description, transactionType)
     )
 
-  given HeaderEncoder[TransactionInput] =
-    HeaderEncoder.encoder("date", "amount", "categoryId", "description", "transactionType")(
-      (t: TransactionInput) => (t.date, t.amount, t.category.value, t.description, t.transactionType)
+  given HeaderEncoder[TransactionCsvRow] =
+    HeaderEncoder.encoder(
+      "date",
+      "amount",
+      "category",
+      "description",
+      "transactionType"
+    )((t: TransactionCsvRow) =>
+      (t.date, t.amount, t.category, t.description, t.transactionType)
     )

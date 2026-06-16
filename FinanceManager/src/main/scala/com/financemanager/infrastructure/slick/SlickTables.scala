@@ -3,20 +3,34 @@ package com.financemanager.infrastructure.slick
 import com.financemanager.domain.model._
 import java.time.LocalDate
 
-/**
- * Defines the Slick table schemas and implicit column mappers for custom domain types.
- */
+/** Defines the Slick table schemas and implicit column mappers for custom
+  * domain types.
+  */
 object SlickTables:
-  import slick.jdbc.SQLiteProfile.api.{MappedColumnType, BaseColumnType, longColumnType, stringColumnType}
+  import slick.jdbc.SQLiteProfile.api.{
+    MappedColumnType,
+    BaseColumnType,
+    longColumnType,
+    stringColumnType
+  }
 
   implicit val categoryIdMapper: BaseColumnType[CategoryId] =
-    MappedColumnType.base[CategoryId, Long]((id: CategoryId) => id.value, CategoryId.apply)
+    MappedColumnType.base[CategoryId, Long](
+      (id: CategoryId) => id.value,
+      CategoryId.apply
+    )
 
   implicit val transactionIdMapper: BaseColumnType[TransactionId] =
-    MappedColumnType.base[TransactionId, Long]((id: TransactionId) => id.value, TransactionId.apply)
+    MappedColumnType.base[TransactionId, Long](
+      (id: TransactionId) => id.value,
+      TransactionId.apply
+    )
 
   implicit val transactionTypeMapper: BaseColumnType[TransactionType] =
-    MappedColumnType.base[TransactionType, String](_.toString, TransactionType.valueOf)
+    MappedColumnType.base[TransactionType, String](
+      _.toString,
+      TransactionType.valueOf
+    )
 
   implicit val localDateMapper: BaseColumnType[LocalDate] =
     MappedColumnType.base[LocalDate, String](_.toString, LocalDate.parse)
@@ -33,7 +47,8 @@ object SlickTables:
 
   val categories = TableQuery[CategoriesTable]
 
-  class TransactionsTable(tag: Tag) extends Table[Transaction](tag, "transactions"):
+  class TransactionsTable(tag: Tag)
+      extends Table[Transaction](tag, "transactions"):
     def id = column[TransactionId]("id", O.PrimaryKey, O.AutoInc)
     def date = column[LocalDate]("date")(using localDateMapper)
     def amount = column[BigDecimal]("amount")(using bigDecimalMapper)
@@ -43,7 +58,7 @@ object SlickTables:
 
     def categoryFk = foreignKey("cat_fk", categoryId, categories)(_.id)
 
-    def * = (id, date, amount, categoryId, description, transactionType).mapTo[Transaction]
+    def * = (id, date, amount, categoryId, description, transactionType)
+      .mapTo[Transaction]
 
   val transactions = TableQuery[TransactionsTable]
-

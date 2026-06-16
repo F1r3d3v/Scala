@@ -4,26 +4,27 @@ import com.financemanager.domain.model.{Category, CategoryId}
 import com.financemanager.domain.repository.CategoryRepository
 import scala.util.Using
 
-/**
- * SQLite-backed implementation of the CategoryRepository.
- *
- * Manages category persistence and fetching from a relational database,
- * utilizing an internal cache to reduce redundant DB reads.
- *
- * @param dbManager database manager handling connections and setup
- */
-class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryRepository:
+/** SQLite-backed implementation of the CategoryRepository.
+  *
+  * Manages category persistence and fetching from a relational database,
+  * utilizing an internal cache to reduce redundant DB reads.
+  *
+  * @param dbManager
+  *   database manager handling connections and setup
+  */
+class SqliteCategoryRepository(dbManager: JdbcDatabaseManager)
+    extends CategoryRepository:
 
   private var cache: Map[CategoryId, Category] = Map.empty
 
   dbManager.ensureCategoriesSeeded()
   refreshCache()
 
-  /**
-   * Retrieves all categories presently in the database.
-   *
-   * @return a map consisting of Category ID as a key and Category data as a value
-   */
+  /** Retrieves all categories presently in the database.
+    *
+    * @return
+    *   a map consisting of Category ID as a key and Category data as a value
+    */
   private def loadCache(): Map[CategoryId, Category] =
     Using(dbManager.getConnection) { conn =>
       Using.resource(conn.createStatement()) { stmt =>
@@ -41,34 +42,37 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
         System.err.println(s"Failed to load categories: ${err.getMessage}")
         Map.empty
 
-  /**
-   * Reloads internal cached data from the database.
-   * If retrieved cache is empty, enforces initial categories configuration.
-   */
+  /** Reloads internal cached data from the database. If retrieved cache is
+    * empty, enforces initial categories configuration.
+    */
   private def refreshCache(): Unit =
     cache = loadCache()
     if cache.isEmpty then
       dbManager.ensureCategoriesSeeded()
       cache = loadCache()
 
-  /**
-   * Retrieves all configured categories, fetching from DB if cache has not been populated.
-   *
-   * @return sorted sequence of available `Category` items
-   */
+  /** Retrieves all configured categories, fetching from DB if cache has not
+    * been populated.
+    *
+    * @return
+    *   sorted sequence of available `Category` items
+    */
   override def findAll(): Seq[Category] =
     if cache.isEmpty then refreshCache()
     cache.values.toSeq.sortBy(_.name)
 
-  /**
-   * Persists a new category matching the specified name into the repository.
-   *
-   * @param category textual name assigned to the new category
-   * @return generated Category model instance including assigned unique identifier
-   */
+  /** Persists a new category matching the specified name into the repository.
+    *
+    * @param category
+    *   textual name assigned to the new category
+    * @return
+    *   generated Category model instance including assigned unique identifier
+    */
   override def add(category: String): Category =
     val result = Using(dbManager.getConnection) { conn =>
-      val existingId = Using.resource(conn.prepareStatement("SELECT id FROM categories WHERE name = ?")) { stmt =>
+      val existingId = Using.resource(
+        conn.prepareStatement("SELECT id FROM categories WHERE name = ?")
+      ) { stmt =>
         stmt.setString(1, category)
         val rs = stmt.executeQuery()
         if rs.next() then Some(rs.getLong("id")) else None
@@ -76,17 +80,18 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
 
       existingId match
         case Some(id) => Category(CategoryId(id), category)
-        case None =>
-          Using.resource(conn.prepareStatement(
-            "INSERT INTO categories (name) VALUES (?)"
-          )) { stmt =>
+        case None     =>
+          Using.resource(
+            conn.prepareStatement(
+              "INSERT INTO categories (name) VALUES (?)"
+            )
+          ) { stmt =>
             stmt.setString(1, category)
             stmt.executeUpdate()
           }
           Using.resource(conn.createStatement()) { stmt =>
             val rs = stmt.executeQuery("SELECT last_insert_rowid()")
-            if rs.next() then
-              Category(CategoryId(rs.getLong(1)), category)
+            if rs.next() then Category(CategoryId(rs.getLong(1)), category)
             else throw new IllegalStateException("Failed to insert category")
           }
     }.get
@@ -94,14 +99,16 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
     notifyListeners()
     result
 
-  /**
-   * Drops category with matching identifier from the persistent storage.
-   *
-   * @param id identifier of targeted category
-   */
+  /** Drops category with matching identifier from the persistent storage.
+    *
+    * @param id
+    *   identifier of targeted category
+    */
   override def remove(id: CategoryId): Unit =
     Using(dbManager.getConnection) { conn =>
-      Using.resource(conn.prepareStatement("DELETE FROM categories WHERE id = ?")) { stmt =>
+      Using.resource(
+        conn.prepareStatement("DELETE FROM categories WHERE id = ?")
+      ) { stmt =>
         stmt.setLong(1, id.value)
         stmt.executeUpdate()
       }
@@ -109,10 +116,11 @@ class SqliteCategoryRepository(dbManager: JdbcDatabaseManager) extends CategoryR
     refreshCache()
     notifyListeners()
 
-  /**
-   * Examines cache for a category identified by the specified ID.
-   *
-   * @param id numeric category identifier
-   * @return optional Category instance if tracked
-   */
+  /** Examines cache for a category identified by the specified ID.
+    *
+    * @param id
+    *   numeric category identifier
+    * @return
+    *   optional Category instance if tracked
+    */
   def findById(id: CategoryId): Option[Category] = cache.get(id)

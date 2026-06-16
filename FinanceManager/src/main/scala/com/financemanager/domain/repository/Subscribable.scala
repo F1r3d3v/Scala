@@ -2,9 +2,8 @@ package com.financemanager.domain.repository
 
 import scala.collection.mutable.ListBuffer
 
-/**
- * Mixin for repository change notifications.
- */
+/** Mixin for repository change notifications.
+  */
 trait Subscribable:
   private val listeners = ListBuffer.empty[() => Unit]
 

@@ -4,14 +4,17 @@ import com.financemanager.domain.model.Extensions.*
 import com.financemanager.domain.repository.TransactionRepository
 import java.time.YearMonth
 
-/**
- * Aggregated budget metrics for the dashboard.
- *
- * @param totalSpent summed expenses
- * @param totalIncome summed income
- * @param remaining income minus expenses
- * @param transactionCount total number of transactions in scope
- */
+/** Aggregated budget metrics for the dashboard.
+  *
+  * @param totalSpent
+  *   summed expenses
+  * @param totalIncome
+  *   summed income
+  * @param remaining
+  *   income minus expenses
+  * @param transactionCount
+  *   total number of transactions in scope
+  */
 final case class BudgetSummary(
     totalSpent: BigDecimal,
     totalIncome: BigDecimal,
@@ -19,11 +22,11 @@ final case class BudgetSummary(
     transactionCount: Int
 )
 
-/**
- * Domain service that computes budget summaries from transactions.
- *
- * @param repository source of persisted transactions
- */
+/** Domain service that computes budget summaries from transactions.
+  *
+  * @param repository
+  *   source of persisted transactions
+  */
 final class BudgetService(repository: TransactionRepository):
   def computeSummary(): BudgetSummary =
     val transactions = repository.findAll().filterByMonth(YearMonth.now())
