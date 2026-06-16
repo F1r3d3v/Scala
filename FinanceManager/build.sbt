@@ -95,7 +95,8 @@ lazy val root = (project in file("."))
         .map(_.name.replace("-", "."))
         .mkString(",")
 
-      val allModules = (jfxModules.split(",").toSeq ++ nativeModules.toSeq).mkString(",")
+      val jdkModules = Seq("jdk.unsupported", "java.management")
+      val allModules = (jfxModules.split(",").toSeq ++ nativeModules.toSeq ++ jdkModules).mkString(",")
       log.info(s"All modules: $allModules")
 
       val javaOptArgs = (Universal / javaOptions).value.flatMap(Seq("--java-options", _))
