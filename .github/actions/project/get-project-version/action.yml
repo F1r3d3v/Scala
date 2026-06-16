@@ -1,0 +1,36 @@
+name: Get Project Version
+description: Extracts SemVer from FinanceManager/build.sbt
+
+inputs:
+  ref:
+    description: Git ref (branch, tag, or SHA) — if omitted reads from filesystem
+    required: false
+    
+outputs:
+  version:
+    description: Full version e.g. 1.2.3
+    value: ${{ steps.ver.outputs.version }}
+  major:
+    description: Major component
+    value: ${{ steps.ver.outputs.major }}
+  minor:
+    description: Minor component
+    value: ${{ steps.ver.outputs.minor }}
+  patch:
+    description: Patch component
+    value: ${{ steps.ver.outputs.patch }}
+  major-minor:
+    description: Major.Minor e.g. 1.2
+    value: ${{ steps.ver.outputs.major-minor }}
+  
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/shared/get-version
+      id: ver
+      with:
+        file: FinanceManager/build.sbt
+        ref:  ${{ inputs.ref }}
+        grep-pattern: '^(ThisBuild[[:space:]]*/[[:space:]]*)?version[[:space:]]*:='
+        sed-expression: 's/.*"([^"]+)".*/\1/'
+

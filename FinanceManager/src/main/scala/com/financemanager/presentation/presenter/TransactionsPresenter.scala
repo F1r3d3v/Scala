@@ -1,0 +1,146 @@
+package com.financemanager.presentation.presenter
+
+import com.financemanager.IO.Exporters.ExporterCSV
+import com.financemanager.IO.Importers.ImporterCSV
+import com.financemanager.IO.csv.TransactionCsvCodec.{*, given}
+import com.financemanager.domain.model.{
+  CategoryId,
+  ImportMode,
+  Transaction,
+  TransactionId,
+  TransactionInput,
+  TransactionType
+}
+import com.financemanager.domain.repository.TransactionRepository
+import com.financemanager.domain.service.{
+  CategoryMaintenanceService,
+  CategoryService,
+  ImportExportService,
+  TransactionService
+}
+import com.financemanager.presentation.*
+import com.financemanager.presentation.DisplayModels.*
+
+import java.nio.file.Path
+
+/** Presenter coordinating transaction CRUD between view and services.
+  *
+  * @param view
+  *   transactions UI contract
+  * @param transactionService
+  *   domain service for validation/persistence
+  * @param categoryService
+  *   domain service for category lookup
+  * @param categoryMaintenanceService
+  *   domain service for safe category deletion
+  * @param repository
+  *   repository to observe for updates
+  * @param importExportService
+  *   service for importing/exporting transactions
+  */
+final class TransactionsPresenter(
+    view: TransactionsViewContract,
+    transactionService: TransactionService,
+    categoryService: CategoryService,
+    categoryMaintenanceService: CategoryMaintenanceService,
+    repository: TransactionRepository,
+    importExportService: ImportExportService
+) extends TransactionsPresenterContract:
+
+  private var selectedId: Option[TransactionId] = None
+  private var categoryCache: Map[CategoryId, String] = Map.empty
+
+  override def onViewCreated(): Unit =
+    refreshCategories()
+    refreshTransactions()
+    repository.subscribe(() => refreshTransactions())
+    categoryService.subscribe(() =>
+      refreshCategories()
+      refreshTransactions()
+    )
+
+  override def onSubmit(input: TransactionInput): Unit =
+    selectedId match
+      case Some(id) =>
+        transactionService.update(id, input) match
+          case Left(err) => view.displayError(err.message)
+          case Right(_)  =>
+            selectedId = None
+            view.resetForm()
+      case None =>
+        transactionService.add(input) match
+          case Left(err) => view.displayError(err.message)
+          case Right(_)  => view.resetForm()
+
+  override def onDelete(id: TransactionId): Unit =
+    transactionService.delete(id) match
+      case Left(err) => view.displayError(err.message)
+      case Right(_)  =>
+        selectedId = None
+        view.resetForm()
+
+  override def onTransactionSelected(id: TransactionId): Unit =
+    selectedId = Some(id)
+    repository.findById(id) match
+      case Some(t) =>
+        view.populateForm(buildTransactionDisplay(t))
+      case None => view.displayError(s"Transaction ${id.value} not found")
+
+  override def onClearSelection(): Unit =
+    selectedId = None
+    view.resetForm()
+
+  override def onAddCategory(name: String): Unit =
+    categoryService.add(name)
+
+  override def onDeleteCategory(id: CategoryId): Unit =
+    categoryMaintenanceService.previewDeletion(id) match
+      case None          => view.displayError("Category not found")
+      case Some(preview) =>
+        val shouldDelete =
+          preview.assignedTransactionCount == 0 || view.confirmCategoryDeletion(
+            preview
+          )
+
+        if shouldDelete then
+          categoryMaintenanceService.deleteCategory(id) match
+            case Left(message) => view.displayError(message)
+            case Right(_)      => ()
+
+  override def onImport(path: Path, mode: ImportMode): Unit =
+    val importer = ImporterCSV(path)
+    importExportService.importTransactions(importer, mode) match
+      case Left(err) => view.displayError(err.message)
+      case Right(_)  => ()
+
+  override def onExport(path: Path): Unit =
+    val exporter = ExporterCSV(path)
+    importExportService.exportTransactions(exporter) match
+      case Left(err) => view.displayError(err.message)
+      case Right(_)  => ()
+
+  /** Refreshes category choices shown by the view.
+    */
+  private def refreshCategories(): Unit =
+    view.displayCategories(categoryService.getAll)
+
+  /** Refreshes the transaction table using current category labels.
+    */
+  private def refreshTransactions(): Unit =
+    categoryCache = categoryService.getAll.map(c => c.id -> c.name).toMap
+    val displays = repository.findAll().map(buildTransactionDisplay)
+    view.displayTransactions(displays)
+
+  private def buildTransactionDisplay(t: Transaction): TransactionDisplay =
+    val categoryName = categoryCache.getOrElse(t.category, s"Unknown")
+    val prefix =
+      if t.transactionType == TransactionType.Income then "+$" else "-$"
+    TransactionDisplay(
+      t.id,
+      t.date.toString,
+      prefix + f"${t.amount.toDouble}%.2f",
+      t.amount,
+      categoryName,
+      t.description,
+      t.transactionType
+    )

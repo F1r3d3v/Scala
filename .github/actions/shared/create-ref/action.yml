@@ -1,0 +1,96 @@
+name: Create Git Ref
+description: Create a branch or tag at a given SHA
+
+inputs:
+  name:
+    description: Branch or tag name
+    required: true
+
+  sha:
+    description: Commit SHA
+    required: true
+
+  type:
+    description: "branch or tag"
+    required: true
+
+  repo:
+    description: Target repo (owner/repo). Defaults to current.
+    required: false
+
+outputs:
+  created:
+    description: Whether the ref was created
+    value: ${{ steps.ref.outputs.created }}
+
+runs:
+  using: composite
+  steps:
+    - id: ref
+      uses: actions/github-script@v9
+      with:
+        script: |
+          const name = '${{ inputs.name }}';
+          const sha  = '${{ inputs.sha }}';
+          const type = '${{ inputs.type }}';
+          const repoInput = '${{ inputs.repo }}';
+
+          const [owner, repo] = repoInput
+            ? repoInput.split('/')
+            : [context.repo.owner, context.repo.repo];
+
+          // ---- VALIDATION ----
+          if (!/^[0-9a-f]{7,40}$/i.test(sha) || /^0+$/.test(sha)) {
+            core.setFailed(`Invalid SHA: ${sha}`);
+            return;
+          }
+
+          if (!['branch', 'tag'].includes(type)) {
+            core.setFailed(`Invalid type: ${type} (must be 'branch' or 'tag')`);
+            return;
+          }
+
+          const refShort = type === 'branch'
+            ? `heads/${name}`
+            : `tags/${name}`;
+
+          const refFull = `refs/${refShort}`;
+
+          core.info(`Target: ${owner}/${repo}`);
+          core.info(`Creating ${type}: ${name} → ${sha}`);
+
+          // ---- CHECK EXISTENCE ----
+          let exists = false;
+
+          try {
+            await github.rest.git.getRef({
+              owner,
+              repo,
+              ref: refShort
+            });
+            exists = true;
+          } catch (err) {
+            if (err.status !== 404) throw err;
+          }
+
+          if (exists) {
+            core.info(`${type} '${name}' already exists — skipping`);
+            core.setOutput("created", "false");
+            return;
+          }
+
+          // ---- CREATE ----
+          try {
+            await github.rest.git.createRef({
+              owner,
+              repo,
+              ref: refFull,
+              sha
+            });
+
+            core.info(`Created ${type} '${name}'`);
+            core.setOutput("created", "true");
+          } catch (err) {
+            core.setOutput("created", "false");
+            throw err;
+          }

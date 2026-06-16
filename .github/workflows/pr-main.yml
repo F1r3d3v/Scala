@@ -1,0 +1,24 @@
+name: PR (main)
+
+on:
+  pull_request:
+    types: [edited]
+    branches: [main]
+
+concurrency:
+  group: pr-main-${{ github.head_ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/shared/commitlint-title
+        with:
+          title: ${{ github.event.pull_request.title }}

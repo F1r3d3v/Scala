@@ -1,0 +1,95 @@
+name: Generate Changelog
+description: |
+  Generates a Markdown changelog. First checks the triggering commit's
+  message body — if non-empty it is used verbatim (lets authors write
+  curated release notes in the merge-commit body). Otherwise the log
+  is derived automatically from Conventional Commits in the given range.
+
+inputs:
+  from-ref:
+    description: |
+      Git ref (tag or SHA) that marks the start of the changelog range
+      (exclusive). Use the previous release tag, or the first commit SHA
+      when no previous tag exists.
+    required: true
+  to-ref:
+    description: Git ref marking the end of the changelog range (inclusive)
+    required: false
+    default: HEAD
+  trigger-commit-sha:
+    description: |
+      SHA of the commit whose message body is checked first.
+      Defaults to HEAD (the tagged commit on tag-push workflows).
+    required: false
+    default: HEAD
+
+outputs:
+  changelog:
+    description: Markdown-formatted changelog string
+    value: ${{ steps.build.outputs.changelog }}
+  source:
+    description: '"commit-message" or "conventional-commits"'
+    value: ${{ steps.build.outputs.source }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build changelog
+      id: build
+      shell: bash
+      run: |
+        TRIGGER="${{ inputs.trigger-commit-sha }}"
+        FROM="${{ inputs.from-ref }}"
+        TO="${{ inputs.to-ref }}"
+
+        BODY=$(git log -1 --format="%b" "$TRIGGER" | sed '/^[[:space:]]*$/d' || true)
+        if [ -n "$BODY" ]; then
+          echo "source=commit-message" >> "$GITHUB_OUTPUT"
+          DELIM="$(openssl rand -hex 8)"
+          {
+            echo "changelog<<$DELIM"
+            echo "$BODY"
+            echo "$DELIM"
+          } >> "$GITHUB_OUTPUT"
+          echo "Using merge-commit body as changelog"
+          exit 0
+        fi
+
+        echo "No commit body — generating changelog from conventional commits ($FROM..$TO)"
+
+        BREAKING=$(git log "$FROM".."$TO" --format="%s%n%b" \
+          | grep -E '(^BREAKING CHANGE:|^.+!:)' || true)
+        FEATS=$(git log "$FROM".."$TO" --format="- %s" \
+          | grep -E '^- feat(\([^)]*\))?(!)?:' || true)
+        FIXES=$(git log "$FROM".."$TO" --format="- %s" \
+          | grep -E '^- fix(\([^)]*\))?(!)?:' || true)
+        PERFS=$(git log "$FROM".."$TO" --format="- %s" \
+          | grep -E '^- perf(\([^)]*\))?:' || true)
+
+        NL=$'\n'
+
+        CL=""
+        if [ -n "$BREAKING" ]; then
+          CL+="## Breaking Changes${NL}${NL}"
+          while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            CL+="- ${line}${NL}"
+          done <<< "$BREAKING"
+          CL+="${NL}"
+        fi
+        [ -n "$FEATS" ]     && CL+="## Features${NL}${NL}${FEATS}${NL}${NL}"
+        [ -n "$FIXES" ]     && CL+="## Bug Fixes${NL}${NL}${FIXES}${NL}${NL}"
+        [ -n "$PERFS" ]     && CL+="## Performance${NL}${NL}${PERFS}${NL}${NL}"
+
+        if [ -z "$CL" ]; then
+          CL="_No changelog entries._"
+        fi
+
+        echo "source=conventional-commits" >> "$GITHUB_OUTPUT"
+        DELIM="$(openssl rand -hex 8)"
+        {
+          echo "changelog<<$DELIM"
+          echo "$CL"
+          echo "$DELIM"
+        } >> "$GITHUB_OUTPUT"
+        echo "Changelog generated from conventional commits"
